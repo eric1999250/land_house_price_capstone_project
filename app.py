@@ -39,10 +39,10 @@ import psycopg2.extras
 import bcrypt
 
 DB_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "database": "land_price_estimation",
-    "user": "postgres",
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": int(os.getenv("DB_PORT", 5432)),
+    "database": os.getenv("DB_NAME", "land_price_estimation"),
+    "user": os.getenv("DB_USER", "postgres"),
     "password": os.getenv("DB_PASSWORD")
 }
 
