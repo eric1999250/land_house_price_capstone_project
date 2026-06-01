@@ -28,7 +28,10 @@ app = Flask(__name__, template_folder='templates')
 
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://localhost:3000"],
+        "origins": [
+            "http://localhost:3000",
+            "https://land-price-frontend.onrender.com"
+        ],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
@@ -3760,7 +3763,7 @@ SMTP_PORT     = 587
 SMTP_USERNAME = 'ericuwinezastarboy@gmail.com'
 SMTP_PASSWORD = 'wagbvbyowxhbwrsg'
 SMTP_FROM     = 'Land Price Estimation System <ericuwinezastarboy@gmail.com>'
-FRONTEND_URL  = 'http://localhost:3000'
+FRONTEND_URL = 'https://land-price-frontend.onrender.com'
 
 def send_reset_email(to_email, reset_token, full_name=''):
     reset_link = f"{FRONTEND_URL}/reset-password?token={reset_token}"
