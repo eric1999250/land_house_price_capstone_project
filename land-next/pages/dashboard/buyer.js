@@ -32,7 +32,7 @@ function useAuth() {
       body: JSON.stringify({ user_id: u.id })
     })
       .then(r => r.json())
-      .then(d => setUser(d.success ? { ...u, phone: d.user.phone } : u))
+      .then(d => setUser(d.success ? { ...u, phone: d.user.phone || d.user.phone_number || u.phone || u.phone_number || '' } : u))
       .catch(() => setUser(u));
   }, []);
   return { user };
@@ -1715,7 +1715,7 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
     if (!pubForm.asking_price || Number(pubForm.asking_price) <= 0) { addAlert('Enter a valid asking price', 'error'); return; }
     setPubLoading(true);
     try {
-      const r = await fetch(`${API}/listings/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ upi: pubForm.upi.trim(), user_id: user?.id, seller_name: user?.name, phone: user?.phone || '', asking_price: Number(pubForm.asking_price), description: pubForm.description }) });
+      const r = await fetch(`${API}/listings/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ upi: pubForm.upi.trim(), user_id: user?.id, seller_name: user?.name, phone: user?.phone || user?.phone_number || '', asking_price: Number(pubForm.asking_price), description: pubForm.description }) });
       const d = await r.json();
       if (d.success) { addAlert('Land parcel published successfully!', 'success'); setPubForm({ upi: '', asking_price: '', description: '' }); setShowPublish(false); setHistoryPrices(false); load(); }
       else addAlert(d.message || 'Failed to publish', 'error');
@@ -1859,7 +1859,7 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: listingRooms.length ? 10 : 0 }}>
                 <div style={{ flex: 1 }}>
                   <div className="listing-upi">{l.upi}</div>
-                  <div style={{ fontSize: 11, color: '#4d7c77', marginTop: 2 }}><strong>{user?.name}</strong> · <Ic.Phone /> {user?.phone || '—'}</div>
+                  <div style={{ fontSize: 11, color: '#4d7c77', marginTop: 2 }}><strong>{user?.name}</strong> · <Ic.Phone /> <a href={`tel:${l.phone || user?.phone}`} style={{ color: '#0d9488', fontWeight: 700, textDecoration: 'none' }}>{l.phone || user?.phone || '—'}</a></div>
                   <div className="listing-price">{fmt(l.asking_price || 0)}</div>
                   {l.description && <div className="listing-desc">{l.description}</div>}
                 </div>
