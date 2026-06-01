@@ -627,7 +627,7 @@ function RegisterModal({ t, lang, onClose, onSwitchToLogin }) {
     try {
       // Send full international phone number to server
       const p = form.phone.replace(/\D/g, '');
-      const fullPhone = '+250' + (p.startsWith('0') ? p : '0' + p);
+      const fullPhone = '+250' + (p.startsWith('0') ? p.slice(1) : p);
       const d = await (await fetch('https://land-price-api-35fr.onrender.com/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
