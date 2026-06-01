@@ -4226,6 +4226,11 @@ def google_callback():
         })
         token_data = token_res.json()
 
+        print(f"[Google OAuth] token_data: {token_data}", flush=True)
+
+        if 'error' in token_data:
+            return jsonify({'success': False, 'message': token_data.get('error_description', 'Token exchange failed')}), 400
+
         if 'error' in token_data:
             return jsonify({'success': False, 'message': token_data.get('error_description', 'Token exchange failed')}), 400
 
