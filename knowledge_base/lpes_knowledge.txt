@@ -1,0 +1,64 @@
+LPES - Land Price Estimation System Knowledge Base
+
+SYSTEM OVERVIEW:
+LPES is a Machine Learning-Based Framework for Land Price Estimation in Rwanda.
+It covers Huye District, specifically Huye and Mbazi Sectors.
+Developed at Rwanda Polytechnic, Huye College, ICT Department.
+
+USERS AND ROLES:
+1. Buyer/Seller - Can search land parcels, get price estimates, list land for sale, chat with sellers, submit suggestions
+2. District Land Officer - Manages sector notaries, views mutations, generates reports, forwards reports to admin
+3. Sector Notary (Government) - Certifies land mutation deeds at sector level, sets appointments, stamps documents, sends to district
+4. Private Notary - Independent legal professional who certifies land mutations
+5. Admin/System Admin - Manages all users, views stats, manages mutations, reads suggestions and reports
+
+HOW TO SEARCH LAND (UPI):
+- UPI stands for Unique Parcel Identifier
+- Format: Province/District/Sector/Cell/Parcel (e.g. xx/xx/xx/xx/xxxx)
+- No spaces, use forward slashes only
+- Go to homepage, enter UPI in search box, click Search
+
+HOW TO ESTIMATE LAND PRICE:
+- First search for a UPI
+- After land data appears, click "Estimate Land Price" button
+- System uses Machine Learning model to estimate Minimum, Average, and Maximum price
+- Prices shown in RWF (Rwandan Francs) with price per square meter
+
+TAX CALCULATION:
+- Capital Gains Tax rate: 2.5%
+- Tax applies ONLY on the amount above 5,000,000 RWF
+- Example: Land at 8,000,000 RWF → Taxable amount = 3,000,000 → Tax = 75,000 RWF
+- Land below 5,000,000 RWF = No tax
+
+LAND TRANSFER PROCESS (12 Steps):
+Step 1: Seller lists land on marketplace
+Step 2: Buyer finds listing and chats with seller
+Step 3: Seller and buyer agree on price in chat
+Step 4: Seller confirms agreement
+Step 5: Seller fills Form 11.a (seller information)
+Step 6: Buyer fills Form 11.b (buyer information)
+Step 7: System sends documents to notary
+Step 8: Notary reviews documents
+Step 9: Notary sets appointment date for signing
+Step 10: Notary uploads certified documents
+Step 11: Notary stamps and signs the deed
+Step 12: Notary sends completed mutation to district
+
+REGISTRATION:
+- Buyers/Sellers can self-register and are auto-approved
+- Notaries and Officers must wait for admin/district approval
+- Email must be Gmail, Yahoo, Outlook, Hotmail, iCloud, ProtonMail or .rw domain
+- Phone must be Rwandan: MTN (078/079) or TIGO (072/073)
+- Password must have 8+ chars, uppercase, lowercase, number, special character
+- National ID must be 16 digits starting with 1
+
+LOCATION:
+- System covers Rwanda, Southern Province, Huye District
+- Sectors: Huye and Mbazi
+- Data sourced from Rwanda Land Management Authority
+
+TECHNICAL:
+- Built with Next.js (frontend) and Flask/Python (backend)
+- Machine Learning model predicts land prices
+- PostgreSQL database
+- Supports English and Kinyarwanda languages
