@@ -4209,7 +4209,7 @@ def google_callback():
     try:
         data         = request.get_json()
         code         = data.get('code', '')
-        redirect_uri = data.get('redirect_uri', 'http://localhost:3000/auth/callback')
+        redirect_uri = "https://land-price-frontend.onrender.com/auth/callback"
 
         if not code:
             return jsonify({'success': False, 'message': 'No authorization code provided'}), 400
