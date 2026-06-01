@@ -10,7 +10,7 @@ import Head from 'next/head';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 
-const API = 'http://127.0.0.1:5000';
+const API = 'https://land-price-api-35fr.onrender.com';
 
 // ── Auth ────────────────────────────────────────────────────
 function useAuth() {
@@ -1420,7 +1420,7 @@ function ViewMutations({ user, addAlert }) {
                       </div>
                       {doc.verified && <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: 'rgba(22,163,74,.1)', color: '#16a34a' }}>✓ Verified</span>}
                       {doc.file_path && (
-                        <a href={`http://127.0.0.1:5000/uploads/${doc.file_path}`} target="_blank" rel="noopener noreferrer"
+                        <a href={`https://land-price-api-35fr.onrender.com/uploads/${doc.file_path}`} target="_blank" rel="noopener noreferrer"
                           style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 7, background: 'rgba(8,145,178,.1)', color: '#0891b2', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
                           View
                         </a>
