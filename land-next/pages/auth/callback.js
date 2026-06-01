@@ -6,9 +6,7 @@ export default function GoogleCallback() {
   const [status, setStatus] = useState('Signing you in with Google…');
 
   useEffect(() => {
-    // Wait for router to be ready before reading query params
     if (!router.isReady) return;
-
     const code = router.query.code;
     const error = router.query.error;
 
@@ -25,24 +23,24 @@ export default function GoogleCallback() {
     }
 
     fetch('https://land-price-api-35fr.onrender.com/auth/google-callback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code }),
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          localStorage.setItem('lpe_user', JSON.stringify(d.user));
-          router.push(d.redirect || '/dashboard/buyer');
-        } else {
-          setStatus(d.message || 'Sign-in failed. Redirecting…');
-          setTimeout(() => router.push('/'), 2500);
-        }
-      })
-      .catch(() => {
-        setStatus('Server error. Redirecting…');
-        setTimeout(() => router.push('/'), 2500);
-      });
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    code,
+    redirect_uri: 'https://land-price-frontend.onrender.com/auth/callback'
+  }),
+})
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      localStorage.setItem('lpe_user', JSON.stringify(d.user));
+      router.push('/dashboard/buyer');
+    } else {
+      setStatus(d.message || 'Sign-in failed. Redirecting…');
+      setTimeout(() => router.push('/'), 2500);
+    }
+  })
+  .catch(() => { setStatus('Server error. Redirecting…'); setTimeout(() => router.push('/'), 2500); });
   }, [router.isReady]); // ← depends on router.isReady, not router.query
 
   return (

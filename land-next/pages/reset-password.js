@@ -217,7 +217,7 @@ export default function ResetPassword() {
   if (!token) { setView('invalid'); return; }
   setLoading(true);
   try {
-    const res  = await fetch('http://127.0.0.1:5000/auth/reset-password', {
+    const res = await fetch('https://land-price-api-35fr.onrender.com/auth/reset-password', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, password }),
     });
