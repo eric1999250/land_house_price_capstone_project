@@ -1859,7 +1859,13 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: listingRooms.length ? 10 : 0 }}>
                 <div style={{ flex: 1 }}>
                   <div className="listing-upi">{l.upi}</div>
-                  <div style={{ fontSize: 11, color: '#4d7c77', marginTop: 2 }}><strong>{user?.name}</strong> · <Ic.Phone /> <a href={`tel:${l.phone || user?.phone}`} style={{ color: '#0d9488', fontWeight: 700, textDecoration: 'none' }}>{l.phone || user?.phone || '—'}</a></div>
+                  <div style={{ fontSize: 11, color: '#4d7c77', marginTop: 2 }}>
+                    <strong>{user?.name}</strong> · 
+                    <Ic.Phone /> 
+                    <a href={`tel:${user?.phone}`} style={{ color: '#0d9488', fontWeight: 700, textDecoration: 'none' }}>
+                      {user?.phone || '—'}
+                    </a>
+                  </div>
                   <div className="listing-price">{fmt(l.asking_price || 0)}</div>
                   {l.description && <div className="listing-desc">{l.description}</div>}
                 </div>
