@@ -3411,6 +3411,7 @@ useEffect(() => {
     <>
       <Head>
         <title>{TITLES[active]} — Admin · LPES</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
         <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
       </Head>
       <ToastContainer alerts={alerts} removeAlert={removeAlert} />
@@ -3543,6 +3544,356 @@ useEffect(() => {
         .alert-e{background:#fff1f2;color:#be123c;border:1px solid #fecdd3;border-radius:var(--r);padding:10px 14px;font-size:13px}
         .logout-btn{transition:background .2s,transform .15s}
         .logout-btn:hover{background:#dc2626 !important;transform:translateY(-1px)}
+
+
+        
+
+        /* ========== RESPONSIVE STYLES FOR ADMIN DASHBOARD ========== */
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
+  }
+  
+  .qa-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+  
+  .stat-value {
+    font-size: 24px !important;
+  }
+  
+  .stat-label {
+    font-size: 11px !important;
+  }
+}
+
+/* Mobile Landscape (640px - 768px) */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  .qa-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .content {
+    padding: 16px !important;
+  }
+  
+  .view {
+    gap: 12px !important;
+  }
+  
+  /* Make tables scrollable horizontally */
+  .data-table {
+    display: block !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+  
+  /* Card headers responsive */
+  .card-hd {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding: 12px 16px !important;
+  }
+  
+  .card-hd > div:first-child {
+    flex-wrap: wrap !important;
+  }
+  
+  /* Officer cards */
+  .officer-card {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+  
+  .officer-card > div:first-child {
+    width: 100% !important;
+  }
+  
+  /* Form grids */
+  .form-grid,
+  [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Info banner */
+  .info-banner {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding: 14px !important;
+  }
+  
+  /* Role tabs */
+  .role-tab {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+  }
+  
+  /* Search input */
+  .search-wrap-inline {
+    width: 100% !important;
+  }
+  
+  .s-inp-sm {
+    width: 100% !important;
+  }
+  
+  /* Buttons in card headers */
+  .card-hd .btn-p,
+  .card-hd .btn-danger {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  
+  /* Modal on mobile */
+  .m-box {
+    max-width: 95% !important;
+    padding: 20px !important;
+    margin: 10px !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+  
+  /* Stats card value */
+  .stat-card {
+    padding: 14px !important;
+  }
+}
+
+/* Mobile Portrait (up to 640px) */
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .stat-value {
+    font-size: 28px !important;
+  }
+  
+  /* Role tabs container - make scrollable */
+  div[style*="display: flex"][style*="gap: 6px"][style*="flex-wrap: wrap"] {
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 8px !important;
+  }
+  
+  .role-tab {
+    white-space: nowrap !important;
+  }
+  
+  /* Table action buttons */
+  .tbl-btn {
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+  }
+  
+  .tbl-btn svg {
+    width: 10px !important;
+    height: 10px !important;
+  }
+  
+  /* Officer card avatar */
+  .oc-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 13px !important;
+  }
+  
+  /* Modal close button positioning */
+  .m-box .x-close-btn {
+    top: 12px !important;
+    right: 12px !important;
+  }
+  
+  /* Chart responsive */
+  svg[viewBox*="820"] {
+    min-width: 100% !important;
+    height: auto !important;
+  }
+  
+  /* Price trend cards */
+  [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Confirm dialog */
+  .confirm-box {
+    padding: 20px !important;
+    margin: 16px !important;
+  }
+  
+  .confirm-title {
+    font-size: 16px !important;
+  }
+  
+  .confirm-msg {
+    font-size: 13px !important;
+  }
+}
+
+/* Fix for table overflow on all screens */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+@media (max-width: 900px) {
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+/* Fix for stat cards on medium screens */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* Improve touch targets on mobile */
+@media (max-width: 768px) {
+  button, 
+  .sb-item,
+  .qa-card,
+  .role-tab,
+  .tbl-btn {
+    cursor: pointer !important;
+    touch-action: manipulation !important;
+  }
+  
+  /* Better spacing for sidebar items */
+  .sb-item {
+    padding: 10px 12px !important;
+  }
+  
+  /* Make sure tooltips don't break layout */
+  .bell-tooltip {
+    display: none !important;
+  }
+}
+
+/* Fix for the topbar on mobile */
+@media (max-width: 768px) {
+  .topbar-brand {
+    width: auto !important;
+    padding: 0 12px !important;
+  }
+  
+  .topbar-brand-acronym {
+    font-size: 14px !important;
+    letter-spacing: 2px !important;
+  }
+  
+  .topbar-brand-tagline {
+    display: none !important;
+  }
+  
+  .topbar-title {
+    display: none !important;
+  }
+  
+  .topbar-user-name,
+  .topbar-sep,
+  .topbar-role {
+    display: none !important;
+  }
+  
+  .topbar-user {
+    padding: 6px 10px !important;
+  }
+  
+  .topbar-expand-btn {
+    width: 50px !important;
+  }
+  
+  .topbar-user-avatar {
+    width: 32px !important;
+    height: 32px !important;
+  }
+}
+
+/* Fix for suggestion cards on mobile */
+@media (max-width: 640px) {
+  .sug-card {
+    padding: 12px 14px !important;
+  }
+  
+  .sug-card > div:first-child {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  
+  .report-card {
+    padding: 12px 14px !important;
+  }
+  
+  .report-card > div:first-child {
+    flex-wrap: wrap !important;
+  }
+}
+
+/* Fix for stamped records table */
+@media (max-width: 900px) {
+  [class*="stamped"],
+  .card:has(.data-table) .data-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+/* Better sidebar behavior on mobile */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed !important;
+    z-index: 1000 !important;
+    height: 100% !important;
+    left: 0 !important;
+    top: 60px !important;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.1) !important;
+  }
+  
+  .sidebar-closed {
+    transform: translateX(-100%) !important;
+    width: var(--sb-w) !important;
+  }
+  
+  .sidebar-open {
+    transform: translateX(0) !important;
+  }
+  
+  /* Add overlay when sidebar is open on mobile */
+  .sidebar-open::before {
+    content: '';
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: -1;
+  }
+}
+
+
+
         @media(max-width:1100px){.stats-grid{grid-template-columns:repeat(3,1fr)}}
         @media(max-width:900px){.stats-grid{grid-template-columns:1fr 1fr}.qa-grid{grid-template-columns:1fr 1fr}}
         @media(max-width:600px){.stats-grid{grid-template-columns:1fr}.qa-grid{grid-template-columns:1fr}}
