@@ -6,7 +6,7 @@ import Head from 'next/head';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 
-const API = 'http://127.0.0.1:5000';
+const API = 'https://land-price-api-35fr.onrender.com';
 
 function useAuth() {
   const router = useRouter();

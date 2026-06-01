@@ -8,7 +8,7 @@ import Head from 'next/head';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 
-const API = 'http://127.0.0.1:5000';
+const API = 'https://land-price-api-35fr.onrender.com';
 
 // ── Event Bus ──
 const eventBus = {
@@ -2271,7 +2271,7 @@ function ViewTransactions({ addAlert, user }) {
                 const label = docLabels[doc.doc_type] || (doc.doc_type || '').replace(/_/g, ' ');
                 const displayName = doc.original_name || filePath || `Document ${i + 1}`;
                 const isNotary = doc.source === 'notary';
-                const viewUrl = filePath ? `http://127.0.0.1:5000/uploads/${filePath}` : '';
+                const viewUrl = filePath ? `https://land-price-api-35fr.onrender.com/uploads/${filePath}` : '';
                 return (
                   <div key={i} style={{ background: isNotary ? '#f0fdfa' : '#eff6ff', border: `1px solid ${isNotary ? '#ccf2ee' : '#bfdbfe'}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 34, height: 34, borderRadius: 8, background: isNotary ? '#0d9488' : '#0891b2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'white' }}>
