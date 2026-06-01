@@ -9,10 +9,10 @@ export default function GoogleCallback() {
     const code = new URLSearchParams(window.location.search).get('code');
     if (!code) { setStatus('No auth code found. Redirecting…'); setTimeout(() => router.push('/'), 2000); return; }
 
-    fetch('http://127.0.0.1:5000/auth/google-callback', {
+    fetch('https://land-price-api-35fr.onrender.com/auth/google-callback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, redirect_uri: 'http://localhost:3000/auth/callback' }),
+      body: JSON.stringify({ code, redirect_uri: 'https://land-price-frontend.onrender.com/auth/callback' }),
     })
       .then(r => r.json())
       .then(d => {
