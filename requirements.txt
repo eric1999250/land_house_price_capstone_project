@@ -8,3 +8,11 @@ Pillow==10.0.0
 pytesseract==0.3.10
 
 gunicorn
+
+python-dotenv
+psycopg2-binary
+bcrypt
+openai
+PyPDF2
+python-docx
+requests
