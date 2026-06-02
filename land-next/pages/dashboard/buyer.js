@@ -1643,6 +1643,9 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
   const [historyPrices, setHistoryPrices] = useState(null);
   const [histLookupLoading, setHistLookupLoading] = useState(false);
   const [upiError, setUpiError] = useState('');   // ← ADD THIS LINE
+  const [userParcels, setUserParcels] = useState([]);
+  const [parcelDropOpen, setParcelDropOpen] = useState(false);
+  const parcelDropRef = useRef(null);
   const upiDebounceRef = useRef(null);
 
   async function load() {
