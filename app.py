@@ -305,7 +305,7 @@ def login():
         conn = get_db()
         cur  = conn.cursor()
         cur.execute("""
-            SELECT u.id, u.full_name, u.email, u.password_hash,
+            SELECT u.id, u.full_name, u.email, u.password_hash, u.phone, u.national_id,
                    u.status, r.name AS role,
                    u.district_id, u.sector_id,
                    d.name AS district_name,
@@ -356,6 +356,8 @@ def login():
                 'id':            user['id'],
                 'name':          user['full_name'],
                 'email':         user['email'],
+                'phone':         user.get('phone', ''),          
+                'national_id':   user.get('national_id', ''),     
                 'role':          user['role'],
                 'notary_type':   notary_type_val,
                 'district_id':   user.get('district_id'),
@@ -382,6 +384,7 @@ def get_me():
         cur     = conn.cursor()
         cur.execute("""
             SELECT u.id, u.full_name, u.email, u.phone,
+                   u.national_id,
                    u.status, r.name AS role,
                    p.name AS province, d.name AS district, s.name AS sector
             FROM users u
@@ -1797,6 +1800,7 @@ def notaries_all():
         conn = get_db(); cur = conn.cursor()
         cur.execute("""
             SELECT u.id, u.full_name, u.email, u.phone,
+                   u.national_id,
                    s.name AS sector,
                    COALESCE(u.notary_type, 'sector') AS notary_type,
                    COALESCE(u.sector_name, '') AS sector_name,
@@ -5568,6 +5572,7 @@ def notaries_by_sector():
         # Get notaries that work in this sector (sector notaries) OR private notaries (can work anywhere)
         cur.execute("""
             SELECT u.id, u.full_name, u.email, u.phone,
+                   u.national_id,
                    COALESCE(u.notary_type, 'sector') AS notary_type,
                    COALESCE(u.sector_name, '') AS sector_name,
                    COALESCE(u.district_name, '') AS district_name,
