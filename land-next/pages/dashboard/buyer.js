@@ -904,6 +904,10 @@ function ViewSaleForm({ user, agreement, addAlert, onFormSubmitted, onBack }) {
   }
 
   // Handle UPI input with debounced search
+  const [userParcels, setUserParcels] = useState([]);
+  const [parcelDropOpen, setParcelDropOpen] = useState(false);
+  const parcelDropRef = useRef(null);
+
   const upiDebounceRef = useRef(null);
   function handleUpiChange(value) {
     setForm(f => ({ ...f, upi: value }));
@@ -1644,17 +1648,26 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/listings/mine`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user?.id }) });
-      const d = await res.json();
+      const [listRes, roomsRes, parcelsRes] = await Promise.all([
+        fetch(`${API}/listings/mine`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user?.id }) }),
+        fetch(`${API}/chat/rooms/seller`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seller_id: user?.id }) }),
+        fetch(`${API}/user/parcels`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user?.id }) }),
+      ]);
+      const [d, roomsD, parcelsD] = await Promise.all([listRes.json(), roomsRes.json(), parcelsRes.json()]);
       if (d.success) setMyListings(d.listings || []);
-      const roomsRes = await fetch(`${API}/chat/rooms/seller`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seller_id: user?.id }) });
-      const roomsD = await roomsRes.json();
       if (roomsD.success) setBuyerRooms(roomsD.rooms || []);
+      if (parcelsD.success) setUserParcels(parcelsD.parcels || []);
     } catch { addAlert('Failed to load your listings', 'error'); }
     setLoading(false);
   }
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    const fn = e => { if (parcelDropRef.current && !parcelDropRef.current.contains(e.target)) setParcelDropOpen(false); };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, []);
 
   // NEW: lookup history when UPI changes (debounced 600ms)
   function handleUpiChange(val) {
@@ -1666,38 +1679,19 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
     upiDebounceRef.current = setTimeout(async () => {
       setHistLookupLoading(true);
       try {
-        // Step 1: Check if UPI belongs to this user's parcels
-        const parcelsRes = await fetch(`${API}/user/parcels`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: user.id }),
-        });
-        const parcelsData = await parcelsRes.json();
-        const userParcels = parcelsData.success ? (parcelsData.parcels || []) : [];
-        const clean = v => String(v).trim().replace(/\s/g, '');
-        const ownedParcel = userParcels.find(p => clean(p.upi) === clean(val));
-      
-        if (!ownedParcel) {
-          setUpiError('This UPI is not in your parcels. It may not be yours or you typed it incorrectly.');
-          setHistoryPrices(false);
-          setHistLookupLoading(false);
-          return;
-        }
-
-        // Step 2: Check prediction history
         const r = await fetch(`${API}/history`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: user.id }),
         });
         const d = await r.json();
         if (d.success) {
+          const clean = v => String(v).trim().replace(/\s/g, '');
           const match = (d.history || []).find(h => clean(h.upi) === clean(val));
           setHistoryPrices(match || false);
         }
       } catch { }
       setHistLookupLoading(false);
-    }, 600);
+    }, 400);
   }
 
   async function publish(e) {
@@ -1757,14 +1751,48 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
 
             <div className="form-grid">
               {/* UPI field */}
-              <div className="form-group">
-                <label className="form-label">UPI *</label>
-                <input
-                  className="f-inp"
-                  value={pubForm.upi}
-                  onChange={e => handleUpiChange(e.target.value)}
-                  placeholder="e.g. xx/xx/xx/xx/xxxx"
-                />
+              <div className="form-group" ref={parcelDropRef} style={{ position: 'relative' }}>
+                <label className="form-label">Select Your Parcel *</label>
+                {userParcels.length === 0 ? (
+                  <div style={{ padding:'10px 14px', background:'#fef3c7', border:'1px solid #fcd34d', borderRadius:10, fontSize:13, color:'#92400e', display:'flex', alignItems:'center', gap:8 }}>
+                    <Ic.Info /> No parcels found. Buy land or contact admin.
+                  </div>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => setParcelDropOpen(o => !o)} style={{ width:'100%', padding:'11px 13px', fontSize:13, fontFamily:'"Times New Roman",Times,serif', background:parcelDropOpen?'white':'var(--teal-l)', border:`1.5px solid ${parcelDropOpen?'var(--teal)':'var(--g200)'}`, borderRadius:'var(--rl)', color:pubForm.upi?'var(--dark)':'#6b7280', fontWeight:pubForm.upi?700:400, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', boxShadow:parcelDropOpen?'0 0 0 3px rgba(13,148,136,.1)':'none', transition:'all .22s' }}>
+                      <span style={{ fontFamily:pubForm.upi?'monospace':'inherit' }}>
+                        {pubForm.upi ? (() => { const p = userParcels.find(p => p.upi === pubForm.upi); return p ? `${p.upi} · ${p.district||p.sector||''}` : pubForm.upi; })() : '— Select a parcel to publish —'}
+                      </span>
+                      <Ic.ChevDown />
+                    </button>
+                    {parcelDropOpen && (
+                      <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'white', border:'1.5px solid var(--g200)', borderRadius:'var(--rl)', boxShadow:'var(--sh-md)', zIndex:9999, maxHeight:240, overflowY:'auto' }}>
+                        {userParcels.map(p => {
+                          const alreadyListed = myListings.some(l => l.upi === p.upi);
+                          return (
+                            <button key={p.upi} type="button" disabled={alreadyListed}
+                              onClick={() => { if (alreadyListed) return; setParcelDropOpen(false); setUpiError(''); setHistoryPrices(null); handleUpiChange(p.upi); }}
+                              style={{ width:'100%', padding:'10px 14px', border:'none', background:pubForm.upi===p.upi?'rgba(13,148,136,.06)':'white', cursor:alreadyListed?'not-allowed':'pointer', display:'flex', flexDirection:'column', alignItems:'flex-start', gap:2, borderBottom:'1px solid var(--g200)', fontFamily:'"Times New Roman",Times,serif', opacity:alreadyListed?0.5:1, transition:'background .15s' }}
+                              onMouseEnter={e => { if (!alreadyListed) e.currentTarget.style.background='#f0fdfa'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = pubForm.upi===p.upi?'rgba(13,148,136,.06)':'white'; }}
+                            >
+                              <div style={{ display:'flex', alignItems:'center', gap:8, width:'100%' }}>
+                                <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0d9488' }}>{p.upi}</span>
+                                {alreadyListed && <span style={{ fontSize:10, fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,.1)', padding:'2px 8px', borderRadius:50 }}>Already listed</span>}
+                                {pubForm.upi===p.upi && <span style={{ marginLeft:'auto', color:'#0d9488', fontWeight:800 }}>✓</span>}
+                              </div>
+                              <div style={{ fontSize:11, color:'#4d7c77' }}>
+                                {[p.sector, p.district, p.province].filter(Boolean).join(' · ')}
+                                {p.area_in_meter_square ? ` · ${Number(p.area_in_meter_square).toLocaleString()} m²` : ''}
+                                {p.land_use ? ` · ${p.land_use}` : ''}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
                 {/* ← ADD THIS BLOCK RIGHT HERE, after the input */}
                 {upiError && (
                   <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', background:'#fff1f2', border:'1px solid #fecdd3', borderRadius:10, fontSize:13, color:'#be123c', marginTop:4 }}>
@@ -2627,6 +2655,121 @@ function ViewSuggest({ user, addAlert }) {
   );
 }
 
+function EditProfileModal({ user, onClose, onSaved, addAlert }) {
+  const [phone, setPhone] = useState(
+    user?.phone ? user.phone.replace(/^\+250/, '').replace(/^0/, '') : ''
+  );
+  const [nid, setNid] = useState(user?.national_id || '');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  const phoneV = phone.length > 0 ? validatePhone('+250' + phone) : null;
+  const nidV = nid.length === 16 ? validateNationalId(nid) : null;
+
+  async function save() {
+    if (!phone.trim()) { setErr('Phone number is required'); return; }
+    if (!phoneV?.ok) { setErr(phoneV?.msg || 'Invalid phone'); return; }
+    if (!nid.trim()) { setErr('National ID is required'); return; }
+    if (nid.length !== 16) { setErr('National ID must be 16 digits'); return; }
+    if (!nidV?.ok) { setErr(nidV?.msg || 'Invalid National ID'); return; }
+
+    setSaving(true);
+    setErr('');
+    try {
+      const r = await fetch(`${API}/auth/update-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.id,
+          phone: '+250' + phone,
+          national_id: nid,
+        }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        const updated = { ...user, phone: '+250' + phone, national_id: nid };
+        localStorage.setItem('lpe_user', JSON.stringify(updated));
+        onSaved(updated);
+        addAlert('Profile updated successfully!', 'success');
+        onClose();
+      } else {
+        setErr(d.message || 'Could not save profile');
+      }
+    } catch {
+      setErr('Cannot connect to server');
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className="m-overlay" onClick={onClose}>
+      <div className="m-box m-animate" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+        <button className="x-close-btn" style={{ position:'absolute', top:14, right:14 }} onClick={onClose}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <div style={{ textAlign:'center', marginBottom:18 }}>
+          <div style={{ width:48, height:48, borderRadius:'50%', background:'linear-gradient(135deg,#0d9488,#0891b2)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', margin:'0 auto 10px' }}>
+            <Ic.User />
+          </div>
+          <div style={{ fontFamily:'"Times New Roman",Times,serif', fontSize:18, fontWeight:800, color:'#0c1a19' }}>Edit Profile</div>
+          <div style={{ fontSize:12, color:'#4d7c77', marginTop:4 }}>Update your phone number and National ID</div>
+        </div>
+
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {/* Phone */}
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+            <label style={{ fontSize:10, fontWeight:700, color:'#4d7c77', textTransform:'uppercase', letterSpacing:'.4px' }}>Phone Number *</label>
+            <div style={{ display:'flex', alignItems:'stretch', border:'1.5px solid var(--g200)', borderRadius:'var(--rl)', overflow:'hidden', background:'var(--teal-l)', transition:'border-color .22s' }}
+              onFocusCapture={e => { e.currentTarget.style.borderColor='var(--teal)'; e.currentTarget.style.background='white'; }}
+              onBlurCapture={e => { e.currentTarget.style.borderColor='var(--g200)'; e.currentTarget.style.background='var(--teal-l)'; }}>
+              <span style={{ display:'flex', alignItems:'center', padding:'0 10px 0 13px', fontSize:13, fontWeight:700, color:'var(--teal)', whiteSpace:'nowrap' }}>+250</span>
+              <input style={{ flex:1, padding:'10px 13px', fontSize:13, fontFamily:'"Times New Roman",Times,serif', background:'transparent', border:'none', outline:'none', color:'var(--dark)' }}
+                type="text" inputMode="numeric" placeholder="7XXXXXXXXX"
+                value={phone} maxLength={9}
+                onChange={e => setPhone(e.target.value.replace(/\D/g,'').slice(0,9))}
+              />
+            </div>
+            {phone && phoneV && (
+              phoneV.ok
+                ? <span style={{ fontSize:11, color:'#10b981' }}>✓ Valid — +250{phone}</span>
+                : <span style={{ fontSize:11, color:'#ef4444' }}>{phoneV.msg}</span>
+            )}
+          </div>
+
+          {/* National ID */}
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+            <label style={{ fontSize:10, fontWeight:700, color:'#4d7c77', textTransform:'uppercase', letterSpacing:'.4px' }}>National ID *</label>
+            <input style={{ padding:'11px 13px', fontSize:13, fontFamily:'monospace', background:'var(--teal-l)', border:'1.5px solid var(--g200)', borderRadius:'var(--rl)', color:'var(--dark)', outline:'none', transition:'all .22s', width:'100%' }}
+              type="text" inputMode="numeric"
+              placeholder="16-digit ID e.g. 1199980000000000"
+              value={nid} maxLength={16}
+              onChange={e => setNid(e.target.value.replace(/\D/g,'').slice(0,16))}
+              onFocus={e => { e.currentTarget.style.borderColor='var(--teal)'; e.currentTarget.style.boxShadow='0 0 0 3px rgba(13,148,136,.1)'; e.currentTarget.style.background='white'; }}
+              onBlur={e => { e.currentTarget.style.borderColor='var(--g200)'; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.background='var(--teal-l)'; }}
+            />
+            {nid.length > 0 && (
+              nid.length < 16
+                ? <span style={{ fontSize:11, color:'#4d7c77' }}>{16 - nid.length} digits remaining</span>
+                : nidV?.ok
+                  ? <span style={{ fontSize:11, color:'#10b981' }}>✓ Valid — {nidV.detectedSex === 'male' ? 'Male' : 'Female'} detected</span>
+                  : <span style={{ fontSize:11, color:'#ef4444' }}>{nidV?.msg}</span>
+            )}
+          </div>
+
+          {err && <div style={{ background:'#fff1f2', color:'#be123c', border:'1px solid #fecdd3', borderRadius:10, padding:'9px 13px', fontSize:12 }}>{err}</div>}
+
+          <button onClick={save} disabled={saving} style={{ padding:13, fontSize:14, fontWeight:700, fontFamily:'"Times New Roman",Times,serif', background:'linear-gradient(135deg,var(--teal),var(--cyan))', color:'white', border:'none', borderRadius:'var(--rl)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7, opacity:saving?0.7:1 }}>
+            {saving ? <><Ic.Spin /> Saving…</> : <>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Save Profile
+            </>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ══════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════
@@ -2654,6 +2797,7 @@ export default function BuyerDashboard() {
   const [profilePhoto, setProfilePhoto] = useState(null);
   const photoInputRef = useRef(null);
 
+  const [showEditProfile, setShowEditProfile] = useState(false);
   const [buyerChatTarget, setBuyerChatTarget] = useState(null);
   const [sellerChatInfo, setSellerChatInfo] = useState(null);
   const [saleFormTarget, setSaleFormTarget] = useState(null);
@@ -3152,6 +3296,15 @@ export default function BuyerDashboard() {
                   {user?.phone && <div className="ud-phone">{user.phone}</div>}
                 </div>
 
+                {/* Edit Profile */}
+                <button
+                  onClick={() => { setUserMenuOpen(false); setShowEditProfile(true); }}
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, width:'100%', padding:'10px 16px', background:'none', border:'none', borderTop:'1px solid var(--g200)', cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'"Times New Roman",Times,serif', color:'#0d9488', transition:'background .15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background='rgba(13,148,136,.06)'}
+                  onMouseLeave={e => e.currentTarget.style.background='none'}
+                >
+                  <Ic.User /> Edit Profile
+                </button>
                 {/* Sign out */}
                 <button className="ud-signout" onClick={() => { setUserMenuOpen(false); setLogoutConfirm(true); }}>
                   <Ic.Logout /> Sign Out
@@ -3169,6 +3322,20 @@ export default function BuyerDashboard() {
             </div>
           </div>
         </div>
+
+        {showEditProfile && (
+          <EditProfileModal
+            user={user}
+            addAlert={addAlert}
+            onClose={() => setShowEditProfile(false)}
+            onSaved={updated => {
+              // Update user in local storage and force re-read
+              localStorage.setItem('lpe_user', JSON.stringify(updated));
+              // Update displayed phone in topbar without full reload
+              window.location.reload();
+            }}
+          />
+        )}
 
         {/* ── Floating AI Chatbot (bottom-right circle) ── */}
         <Chatbot user={user} />
