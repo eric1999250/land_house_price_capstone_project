@@ -32,7 +32,11 @@ function useAuth() {
       body: JSON.stringify({ user_id: u.id })
     })
       .then(r => r.json())
-      .then(d => setUser(d.success ? { ...u, phone: d.user.phone || d.user.phone_number || u.phone || u.phone_number || '' } : u))
+      .then(d => setUser(d.success ? { 
+        ...u, 
+        phone: d.user.phone || d.user.phone_number || u.phone || u.phone_number || '',
+        national_id: d.user.national_id || u.national_id || ''  // ← FIXED
+      } : u))
       .catch(() => setUser(u));
   }, []);
   return { user };
