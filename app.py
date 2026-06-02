@@ -4319,6 +4319,38 @@ def change_password():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/auth/update-profile', methods=['POST', 'OPTIONS'])
+def update_profile():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        phone = data.get('phone', '').strip()
+        national_id = data.get('national_id', '').strip()
+        
+        if not user_id:
+            return jsonify({'success': False, 'message': 'user_id required'}), 400
+        
+        conn = get_db(); cur = conn.cursor()
+        updates = []; params = []
+        if phone:
+            updates.append("phone = %s"); params.append(phone)
+        if national_id:
+            updates.append("national_id = %s"); params.append(national_id)
+        
+        if updates:
+            params.append(user_id)
+            cur.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = %s", params)
+            conn.commit()
+        
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'message': 'Profile updated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+
 # Add this to app.py after the existing routes
 
 @app.route('/admin/mutations/confirm', methods=['POST', 'OPTIONS'])
