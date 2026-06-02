@@ -57,9 +57,14 @@ function validateNationalId(nid) {
   if (year < 1900) return { ok: false, msg: `No one born in ${year} would still be alive today.` };
   if (year > currentYear) return { ok: false, msg: `The year ${year} has not been reached yet.` };
   const sexCode = parseInt(id.slice(5, 8), 10);
-  if (!(sexCode >= 700 && sexCode <= 799) && !(sexCode >= 800 && sexCode <= 899))
+  // FIX: 700-799 = Female, 800-899 = Male
+  if (sexCode >= 700 && sexCode <= 799) {
+    return { ok: true, msg: '', detectedSex: 'female' };
+  } else if (sexCode >= 800 && sexCode <= 899) {
+    return { ok: true, msg: '', detectedSex: 'male' };
+  } else {
     return { ok: false, msg: `Sex code (${id.slice(5, 8)}) must be 7XX (female) or 8XX (male).` };
-  return { ok: true, msg: '' };
+  }
 }
 
 function validatePhone(phone) {
