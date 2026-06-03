@@ -290,12 +290,24 @@ function AddPersonModal({ role, notaryType, onConfirm, onCancel, addAlert }) {
 
   const validatePhone = (phone) => {
     const p = phone.replace(/[\s\-]/g, '');
-    const withCode = /^\+2507[0-9]{8}$/.test(p);
-    const withZero = /^07[0-9]{8}$/.test(p);
+    // If just digits (no +250 or 0 prefix), assume it's the local number
+    let fullNumber = p;
+    if (/^7[0-9]{8}$/.test(p)) {
+      fullNumber = '+250' + p; // Valid: 9 digits starting with 7
+    } else if (/^07[0-9]{8}$/.test(p)) {
+      fullNumber = p; // Already has 0 prefix (10 digits total)
+    } else if (/^\+2507[0-9]{8}$/.test(p)) {
+      fullNumber = p; // Already has +250 prefix
+    }
+  
+    const withCode = /^\+2507[0-9]{8}$/.test(fullNumber);
+    const withZero = /^07[0-9]{8}$/.test(fullNumber);
+  
     if (!withCode && !withZero) return { ok: false, msg: 'Phone must be +250 7XX XXX XXX or 07X XXX XXXX (MTN: 078/079, TIGO: 072/073).' };
-    const local = withCode ? p.slice(4) : p.slice(1);
+  
+    const local = withCode ? fullNumber.slice(4) : fullNumber.slice(1);
     if (!['72','73','78','79'].includes(local.slice(0,2))) return { ok: false, msg: 'Phone prefix must be 072/073 (TIGO) or 078/079 (MTN).' };
-    return { ok: true, msg: '' };
+      return { ok: true, msg: '' };
   };
 
   const validatePassword = (password, fullName, email) => {
