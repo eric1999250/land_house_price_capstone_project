@@ -301,7 +301,12 @@ function AddSectorModal({ user, onConfirm, onCancel, addAlert }) {
   async function submit(e) {
     e.preventDefault();
     const emailErr = validateEmail(form.email) ? '' : 'Use Gmail, Yahoo, Outlook, or a .rw email.';
-    const phoneErr = form.phone ? (validatePhone(form.phone).ok ? '' : validatePhone(form.phone).msg) : '';
+    let phoneErr = '';
+    if (form.phone) {
+      const formattedPhone = '+250' + form.phone;
+      const validation = validatePhone(formattedPhone);
+      phoneErr = validation.ok ? '' : validation.msg;
+    }
     const pwRes    = validatePassword(form.password, form.full_name, form.email);
     const newErrs  = { email: emailErr, phone: phoneErr, password: pwRes.ok ? '' : pwRes.msg };
     
@@ -375,41 +380,46 @@ function AddSectorModal({ user, onConfirm, onCancel, addAlert }) {
           ))}
 
           {/* Phone with +250 prefix */}
-          <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: '#4d7c77', textTransform: 'uppercase', letterSpacing: '.4px', display: 'block', marginBottom: 4 }}>Phone (optional)</label>
-            <div style={{ display:'flex', alignItems:'stretch', border:'1.5px solid var(--g200)', borderRadius:'var(--rl)', overflow:'hidden', background:'var(--teal-l)', transition:'border-color .22s,box-shadow .22s' }}
-              onFocusCapture={e => { e.currentTarget.style.borderColor='var(--teal)'; e.currentTarget.style.boxShadow='0 0 0 3px rgba(13,148,136,.1)'; e.currentTarget.style.background='white'; }}
-              onBlurCapture={e => { e.currentTarget.style.borderColor='var(--g200)'; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.background='var(--teal-l)'; }}>
-              <span style={{ display:'flex', alignItems:'center', padding:'0 10px 0 13px', fontSize:13, fontWeight:700, color:'var(--teal)', whiteSpace:'nowrap', userSelect:'none' }}>+250</span>
-              <input
-                style={{ flex:1, padding:'10px 13px', fontSize:13, fontFamily:'"Times New Roman",Times,serif', background:'transparent', border:'none', outline:'none', color:'var(--dark)', minWidth:0 }}
-                name="phone"
-                type="text"
-                inputMode="numeric"
-                placeholder="7XXXXXXXXX"
-                value={form.phone}
-                maxLength={9}
-                onChange={e => {
-                  const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
-                  setForm(f => ({ ...f, phone: digits }));
-                  if (digits && digits[0] !== '7') {
-                    setErrors(ev => ({ ...ev, phone: 'Phone must start with 7 — MTN: 78/79, TIGO: 72/73.' }));
-                  } else if (digits.length === 9) {
-                    const prefix = digits.slice(0, 2);
-                    if (!['72','73','78','79'].includes(prefix)) {
-                      setErrors(ev => ({ ...ev, phone: 'Phone prefix must be 72/73 (TIGO) or 78/79 (MTN).' }));
-                    } else {
-                      setErrors(ev => ({ ...ev, phone: '' }));
-                    }
-                  } else {
-                    setErrors(ev => ({ ...ev, phone: '' }));
-                  }
-                }}
-              />
-            </div>
-            {errors.phone && <div style={{ fontSize: 11, color: '#be123c', marginTop: 3 }}>{errors.phone}</div>}
-            {!errors.phone && form.phone && form.phone.length === 9 && form.phone[0] === '7' && ['72','73','78','79'].includes(form.phone.slice(0,2)) && <div style={{ fontSize: 11, color: '#16a34a', marginTop: 3 }}>✓ Valid phone number (+250{form.phone})</div>}
-          </div>
+<div>
+  <label style={{ fontSize: 10, fontWeight: 700, color: '#4d7c77', textTransform: 'uppercase', letterSpacing: '.4px', display: 'block', marginBottom: 4 }}>Phone (optional)</label>
+  <div style={{ display:'flex', alignItems:'stretch', border:'1.5px solid var(--g200)', borderRadius:'var(--rl)', overflow:'hidden', background:'var(--teal-l)', transition:'border-color .22s,box-shadow .22s' }}
+    onFocusCapture={e => { e.currentTarget.style.borderColor='var(--teal)'; e.currentTarget.style.boxShadow='0 0 0 3px rgba(13,148,136,.1)'; e.currentTarget.style.background='white'; }}
+    onBlurCapture={e => { e.currentTarget.style.borderColor='var(--g200)'; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.background='var(--teal-l)'; }}>
+    <span style={{ display:'flex', alignItems:'center', padding:'0 10px 0 13px', fontSize:13, fontWeight:700, color:'var(--teal)', whiteSpace:'nowrap', userSelect:'none' }}>+250</span>
+    <input
+      style={{ flex:1, padding:'10px 13px', fontSize:13, fontFamily:'"Times New Roman",Times,serif', background:'transparent', border:'none', outline:'none', color:'var(--dark)', minWidth:0 }}
+      name="phone"
+      type="text"
+      inputMode="numeric"
+      placeholder="7XXXXXXXXX"
+      value={form.phone}
+      maxLength={9}
+      onChange={e => {
+        const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
+        setForm(f => ({ ...f, phone: digits }));
+        // Validate the full number format (what will be submitted)
+        if (digits && digits.length === 9) {
+          const prefix = digits.slice(0, 2);
+          if (!['72','73','78','79'].includes(prefix)) {
+            setErrors(ev => ({ ...ev, phone: 'Phone prefix must be 72/73 (TIGO) or 78/79 (MTN).' }));
+          } else if (digits[0] !== '7') {
+            setErrors(ev => ({ ...ev, phone: 'Phone must start with 7 — MTN: 78/79, TIGO: 72/73.' }));
+          } else {
+            setErrors(ev => ({ ...ev, phone: '' }));
+          }
+        } else if (digits && digits.length > 0 && digits.length < 9) {
+          setErrors(ev => ({ ...ev, phone: `Enter ${9 - digits.length} more digit(s)` }));
+        } else {
+          setErrors(ev => ({ ...ev, phone: '' }));
+        }
+      }}
+    />
+  </div>
+  {errors.phone && <div style={{ fontSize: 11, color: '#be123c', marginTop: 3 }}>{errors.phone}</div>}
+  {!errors.phone && form.phone && form.phone.length === 9 && form.phone[0] === '7' && ['72','73','78','79'].includes(form.phone.slice(0,2)) && (
+    <div style={{ fontSize: 11, color: '#16a34a', marginTop: 3 }}>✓ Valid phone number (+250{form.phone})</div>
+  )}
+</div>
           
           {/* Sector dropdown - only sectors in this district */}
           <div>
