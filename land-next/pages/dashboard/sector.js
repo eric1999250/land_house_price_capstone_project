@@ -1775,7 +1775,7 @@ export default function SectorDashboard() {
         .topbar-sep{color:#9ca3af;font-size:13px;margin:0 2px} 
         .topbar-role {
         color: #6b7280;
-        font-size: 11px;
+        font-size: 13px;
         font-family: "Times New Roman", Times, serif;
         }
         .topbar-chev{color:#6b7280;display:flex;align-items:center;margin-left:4px}
@@ -1846,8 +1846,9 @@ export default function SectorDashboard() {
                 ? <img src={profilePhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                 : initials}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.3 }}>
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <span className="topbar-user-name">{user?.name}</span>
+              <span className="topbar-sep">|</span>
               <span className="topbar-role">Sector Officer · {user?.sector_name || 'Not Assigned'}</span>
             </div>
             <span className="topbar-chev"><Ic.ChevDown /></span>
