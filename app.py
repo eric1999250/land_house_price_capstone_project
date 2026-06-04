@@ -3689,12 +3689,16 @@ def notary_report():
             f"END OF REPORT",
         ])
  
+        cur.execute("SELECT district_id FROM users WHERE id = %s", (user_id,))
+        notary_user_row = cur.fetchone()
+        notary_district_id = notary_user_row['district_id'] if notary_user_row else None
+
         cur.execute("""
             INSERT INTO reports
                 (reference, from_user_id, from_role, to_role, type, content,
-                 sent_at, read, generated_at)
-            VALUES (%s, %s, 'notary', %s, 'full', %s, NOW(), FALSE, NOW())
-        """, (reference, user_id, to_role, content))
+                 sent_at, read, generated_at, district_id)
+            VALUES (%s, %s, 'notary', %s, 'full', %s, NOW(), FALSE, NOW(), %s)
+        """, (reference, user_id, to_role, content, notary_district_id))
         conn.commit(); cur.close(); conn.close()
  
         return jsonify({'success': True, 'reference': reference, 'content': content})
@@ -3725,14 +3729,26 @@ def notary_report_send():
             cur.close(); conn.close()
             return jsonify({'success': False, 'message': 'Report not found'}), 404
  
-        # Get notary_type from users table (source of truth)
-        cur.execute("SELECT notary_type FROM users WHERE id = %s", (user_id,))
+        # Get notary_type and district_id from users table (source of truth)
+        cur.execute("SELECT notary_type, district_id FROM users WHERE id = %s", (user_id,))
         u = cur.fetchone()
         notary_type = (u['notary_type'] or 'sector') if u else 'sector'
+        notary_district_id = u['district_id'] if u else None
  
-        # Route based on type
-        to_role    = 'admin' if notary_type == 'private' else 'district_land_officer'
-        new_ref    = 'RPT-' + uuid.uuid4().hex[:8].upper()
+        to_role = 'admin' if notary_type == 'private' else 'district_land_officer'
+ 
+        # Private notary: original report already targets 'admin', no duplicate needed
+        if notary_type == 'private':
+            cur.close(); conn.close()
+            return jsonify({
+                'success':       True,
+                'new_reference': original['reference'],
+                'sent_to':       'admin',
+                'message':       'Report sent to Admin'
+            })
+ 
+        # Sector notary: create forwarded copy with district_id so district inbox finds it
+        new_ref = 'RPT-' + uuid.uuid4().hex[:8].upper()
  
         cur.execute("""
             INSERT INTO reports
@@ -3747,19 +3763,18 @@ def notary_report_send():
             original['type'],
             original['content'],
             original['reference'],
-            original.get('district_id'),
+            notary_district_id or original.get('district_id'),
             original.get('province_id'),
         ))
         conn.commit()
         cur.close()
         conn.close()
  
-        dest = 'Admin' if notary_type == 'private' else 'District Land Officer'
         return jsonify({
-            'success':      True,
+            'success':       True,
             'new_reference': new_ref,
             'sent_to':       to_role,
-            'message':       f'Report sent to {dest}'
+            'message':       'Report sent to District Land Officer'
         })
     except Exception as e:
         import traceback; traceback.print_exc()
