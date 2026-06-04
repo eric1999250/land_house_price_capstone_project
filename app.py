@@ -5884,6 +5884,73 @@ def sector_land_parcels():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/sector/notary-requests', methods=['POST', 'OPTIONS'])
+def sector_notary_requests():
+    """Get notary requests for the sector officer's sector"""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json()
+        sector_id = data.get('sector_id')
+        sector_name = data.get('sector_name')
+        
+        if not sector_id and not sector_name:
+            return jsonify({'success': False, 'message': 'sector_id or sector_name required'}), 400
+        
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Get notary requests where notary_sector matches the sector officer's sector
+        if sector_id:
+            cur.execute("""
+                SELECT nr.id, nr.request_ref, nr.agreement_id, nr.form_id,
+                       nr.seller_id, nr.buyer_id, nr.upi,
+                       nr.notary_name, nr.notary_type, nr.status,
+                       nr.appointment_date, nr.appointment_time, nr.appointment_location,
+                       nr.created_at, nr.responded_at,
+                       a.seller_name, a.buyer_name, a.agreed_price,
+                       a.form_status, a.stamped_at, a.sent_to_district_at
+                FROM notary_requests nr
+                JOIN agreements a ON nr.agreement_id = a.id
+                WHERE nr.notary_sector IN (SELECT name FROM sectors WHERE id = %s)
+                ORDER BY nr.created_at DESC
+            """, (sector_id,))
+        else:
+            cur.execute("""
+                SELECT nr.id, nr.request_ref, nr.agreement_id, nr.form_id,
+                       nr.seller_id, nr.buyer_id, nr.upi,
+                       nr.notary_name, nr.notary_type, nr.status,
+                       nr.appointment_date, nr.appointment_time, nr.appointment_location,
+                       nr.created_at, nr.responded_at,
+                       a.seller_name, a.buyer_name, a.agreed_price,
+                       a.form_status, a.stamped_at, a.sent_to_district_at
+                FROM notary_requests nr
+                JOIN agreements a ON nr.agreement_id = a.id
+                WHERE LOWER(nr.notary_sector) = LOWER(%s)
+                ORDER BY nr.created_at DESC
+            """, (sector_name,))
+        
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        result = []
+        for r in rows:
+            d = dict(r)
+            for ts_col in ['created_at', 'responded_at', 'stamped_at', 'sent_to_district_at']:
+                if d.get(ts_col):
+                    d[ts_col] = d[ts_col].isoformat()
+            if d.get('appointment_date'):
+                d['appointment_date'] = str(d['appointment_date'])
+            result.append(d)
+        
+        return jsonify({'success': True, 'requests': result})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500        
+
+
 @app.route('/notary-request/documents/review', methods=['POST', 'OPTIONS'])
 def notary_review_documents():
     """Notary marks documents as reviewed/verified"""
