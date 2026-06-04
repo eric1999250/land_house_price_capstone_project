@@ -2275,7 +2275,7 @@ def sector_report():
             INSERT INTO reports
             (reference, from_user_id, from_role, to_role, type, content, 
             sent_at, read, generated_at, district_id)
-        VALUES (%s, %s, 'sector_land_officer', NULL, 'full', %s, 
+        VALUES (%s, %s, 'sector_land_officer', 'district_land_officer', 'full', %s, 
             NOW(), FALSE, NOW(), %s)
         """, (reference, user_id, content, report_district_id))
         conn.commit(); cur.close(); conn.close()
@@ -2300,7 +2300,7 @@ def sector_report_send():
             cur.close(); conn.close()
             return jsonify({'success': False, 'message': 'Report not found'}), 404
 
-        # Get district_id
+        # Get district_id and update it on the existing report if missing
         cur.execute("""
             SELECT COALESCE(s.district_id, u.district_id) AS district_id
             FROM users u
@@ -2314,13 +2314,10 @@ def sector_report_send():
             cur.close(); conn.close()
             return jsonify({'success': False, 'message': 'Could not determine district'}), 400
 
-        # UPDATE the existing report in place — no duplicate
+        # Just update district_id on existing report — no new row
         cur.execute("""
             UPDATE reports
-            SET to_role = 'district_land_officer',
-                district_id = %s,
-                sent_at = NOW(),
-                read = FALSE
+            SET district_id = %s, sent_at = NOW(), read = FALSE
             WHERE reference = %s
         """, (district_id, report_ref))
 
@@ -2760,12 +2757,10 @@ def district_report_forward():
             cur.close(); conn.close()
             return jsonify({'success': False, 'message': 'Report not found'}), 404
 
-        # UPDATE in place — no duplicate
+        # Update to_role to admin — no duplicate row
         cur.execute("""
             UPDATE reports
-            SET to_role = 'admin',
-                sent_at = NOW(),
-                read = FALSE
+            SET to_role = 'admin', sent_at = NOW(), read = FALSE
             WHERE reference = %s
         """, (report_ref,))
         conn.commit(); cur.close(); conn.close()
