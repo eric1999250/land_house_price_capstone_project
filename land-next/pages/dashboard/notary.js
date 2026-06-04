@@ -861,7 +861,7 @@ function ViewRequests({ user, addAlert }) {
                         ['Buyer National ID', formData.buyer_national_id],
                         ['UPI', formData.upi],
                         ['Land Value', formData.land_value ? fmt(formData.land_value) : '—'],
-                        ['Development Value', formData.development_value ? fmt(formData.development_value) : '0 RWF'],
+                        ['Development Value', formData.development_value && formData.development_value > 0 ? fmt(formData.development_value) : ''],
                         ['Agreed Price', formData.agreed_price ? fmt(formData.agreed_price) : '—'],
                         ['Married', formData.married === 'yes' ? 'Yes' : 'No'],
                         ['Spouse Name', formData.spouse_name || '—'],
