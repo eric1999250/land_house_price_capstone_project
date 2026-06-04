@@ -278,6 +278,11 @@ def migrate():
         cur.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS generated_at TIMESTAMP DEFAULT NOW()")
         cur.execute("UPDATE reports SET generated_at = sent_at WHERE generated_at IS NULL")
         cur.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS from_role VARCHAR(50)")
+
+        cur.execute(""" ALTER TABLE land_parcels 
+        ADD COLUMN IF NOT EXISTS previous_owner_id INTEGER,
+        ADD COLUMN IF NOT EXISTS previous_owner_name VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS transfer_price NUMERIC(15,2);""")
  
 
         conn.commit()
@@ -4402,11 +4407,13 @@ def admin_confirm_mutation():
             cur.execute("""
                 UPDATE land_parcels 
                 SET owner_id = %s, 
+                    owner_name = %s,
                     previous_owner_id = %s,
+                    previous_owner_name = %s,
                     transferred_at = NOW(),
                     transfer_price = %s
                 WHERE upi = %s
-            """, (tx['buyer_id'], tx['seller_id'], tx['agreed_price'], tx['upi']))
+            """, (tx['buyer_id'], tx['buyer_name'], tx['seller_id'], tx['seller_name'], tx['agreed_price'], tx['upi']))
             
             # Also update any associated agreements
             cur.execute("""
@@ -4446,6 +4453,14 @@ def admin_reject_mutation():
         
         conn = get_db()
         cur = conn.cursor()
+        
+        # Get transaction to verify it exists
+        cur.execute("SELECT id, reference FROM transactions WHERE id = %s", (transaction_id,))
+        tx = cur.fetchone()
+        
+        if not tx:
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'message': 'Transaction not found'}), 404
         
         cur.execute("""
             UPDATE transactions 
