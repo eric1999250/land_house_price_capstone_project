@@ -76,6 +76,7 @@ const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: 'Home' },
   { id: 'input', label: 'Input Land Data', icon: 'Input' },
   { id: 'verify', label: 'Verify Land Info', icon: 'Map' },
+  { id: 'notary-requests', label: 'Notary Requests', icon: 'Bell' },
   { id: 'mutations', label: 'Mutations', icon: 'Shield' },
   { id: 'records', label: 'Recorded Deeds', icon: 'Records' },
   { id: 'pricechek', label: 'Price Check', icon: 'Search' },
@@ -167,6 +168,108 @@ function ViewDashboard({ setActive, stats }) {
             <div className="qa-label">{q.label}</div>
             <div className="qa-desc">{q.desc}</div>
           </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Notary Requests View ─────────────────────────────────────────
+function ViewNotaryRequests({ user, addAlert }) {
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/sector/notary-requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          sector_id: user?.sector_id,
+          sector_name: user?.sector_name 
+        }),
+      });
+      const d = await r.json();
+      if (d.success) setRequests(d.requests || []);
+    } catch { 
+      addAlert('Cannot load notary requests', 'error'); 
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, [user?.sector_id, user?.sector_name]);
+
+  const statusColor = s => ({
+    pending: '#f59e0b',
+    appointment_set: '#0891b2',
+    stamped: '#7c3aed',
+    sent_to_district: '#22c55e',
+    sent_to_admin: '#22c55e',
+  }[s] || '#94a3b8');
+
+  const statusLabel = s => ({
+    pending: 'Pending',
+    appointment_set: 'Appointment Set',
+    stamped: 'Stamped & Signed',
+    sent_to_district: 'Sent to District',
+    sent_to_admin: 'Sent to Admin',
+  }[s] || s);
+
+  const filtered = requests.filter(r => filter === 'all' ? true : r.status === filter);
+
+  return (
+    <div className="view">
+      <div className="card">
+        <div className="card-hd" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Ic.Bell /> Notary Requests - {user?.sector_name || 'My Sector'} ({filtered.length})
+          </span>
+          <div style={{ display: 'flex', gap: 6, background: 'rgba(255,255,255,.15)', borderRadius: 40, padding: 3 }}>
+            {[['all', 'All'], ['pending', 'Pending'], ['appointment_set', 'Appointed'], ['stamped', 'Stamped'], ['sent_to_district', 'Sent']].map(([v, l]) => (
+              <button key={v} onClick={() => setFilter(v)}
+                style={{ padding: '5px 12px', borderRadius: 40, border: 'none', background: filter === v ? 'white' : 'transparent', color: filter === v ? '#0d9488' : 'rgba(255,255,255,.8)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Times New Roman",Times,serif', transition: 'all .15s' }}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loading && <div className="loading-state"><Ic.Spin /> Loading requests…</div>}
+        {!loading && filtered.length === 0 && (
+          <div className="empty-state">
+            No notary requests in {user?.sector_name || 'your sector'}.
+          </div>
+        )}
+
+        {!loading && filtered.map(req => (
+          <div key={req.id} style={{ borderTop: '1px solid var(--g200)', padding: '16px 20px', borderLeft: req.status === 'pending' ? '3px solid #f59e0b' : '3px solid transparent' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0d9488', fontSize: 13 }}>{req.request_ref}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: statusColor(req.status) }}>● {statusLabel(req.status)}</span>
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#4d7c77' }}>{req.upi}</div>
+                <div style={{ fontSize: 13, marginTop: 4 }}>
+                  <strong>{req.seller_name}</strong> → <strong>{req.buyer_name}</strong>
+                  {req.agreed_price && <> &nbsp;|&nbsp; {fmt(req.agreed_price)}</>}
+                </div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{fmtDate(req.created_at)}</div>
+                {req.appointment_date && (
+                  <div style={{ fontSize: 12, color: '#0891b2', fontWeight: 600, marginTop: 4, display:'flex', alignItems:'center', gap:5 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Appointment: {fmtDate(req.appointment_date)} {req.appointment_time && `at ${req.appointment_time}`}
+                    {req.appointment_location && ` — ${req.appointment_location}`}
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: '#4d7c77', marginTop: 2 }}>
+                  Notary: <strong>{req.notary_name || '—'}</strong> ({req.notary_type || 'sector'})
+                </div>
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -1098,7 +1201,7 @@ export default function SectorDashboard() {
   const initials = user?.name?.split(' ').filter(Boolean).slice(0,2).map(n => n[0]?.toUpperCase()).join('') || 'SO';
 
   const TITLES = {
-    dashboard: 'My Dashboard', input: 'Input Land Data', verify: 'Verify Land Info',
+    dashboard: 'My Dashboard', input: 'Input Land Data', verify: 'Verify Land Info','notary-requests': 'Notary Requests',
     mutations: 'Mutations', records: 'Recorded Deeds', reports: 'Reports', pricechek: 'Price Check',
   };
 
@@ -1107,6 +1210,7 @@ export default function SectorDashboard() {
       case 'dashboard': return <ViewDashboard setActive={setActive} stats={stats} />;
       case 'input': return <ViewInput user={user} addAlert={addAlert} />;
       case 'verify': return <ViewVerify user={user} addAlert={addAlert} />;
+      case 'notary-requests': return <ViewNotaryRequests user={user} addAlert={addAlert} />;
       case 'mutations': return <ViewMutations addAlert={addAlert} />;
       case 'records': return <ViewRecords addAlert={addAlert} />;
       case 'reports': return <ViewReports user={user} addAlert={addAlert} />;
