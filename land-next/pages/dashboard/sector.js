@@ -3,7 +3,7 @@
 // UPDATED: Same topbar + collapsible sidebar format as admin/district
 // ============================================================
 import Head from 'next/head';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 
 const API = 'https://land-price-api-35fr.onrender.com';
@@ -70,6 +70,8 @@ const Ic = {
   ),
   Trash: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
   Chart: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
+  Bell: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
+  Upload: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
 };
 
 const NAV = [
@@ -174,130 +176,593 @@ function ViewDashboard({ setActive, stats }) {
   );
 }
 
-// ── Notary Requests View ─────────────────────────────────────────
+// ── Upload Field Helper ───────────────────────────────────
+function UploadField({ label, fieldKey, uploads, setUploads, required = false }) {
+  const inputRef = useRef(null);
+  const file = uploads[fieldKey];
+  return (
+    <div className="form-group">
+      <label className="form-label">{label}{required && ' *'}</label>
+      <div
+        className="upload-zone"
+        onClick={() => inputRef.current?.click()}
+        style={{ borderColor: file ? '#0d9488' : undefined, background: file ? 'rgba(13,148,136,.04)' : undefined }}
+      >
+        {file ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#0d9488', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0 }}>✓</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#0d9488' }}>{file.name}</span>
+            <button onClick={e => { e.stopPropagation(); setUploads(p => ({ ...p, [fieldKey]: null })); }}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 18 }}>×</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4d7c77" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div style={{ fontSize: 13, color: '#4d7c77', fontWeight: 600 }}>Click to upload</div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>PDF, JPG, PNG — max 5 MB</div>
+          </>
+        )}
+      </div>
+      <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
+        onChange={e => { if (e.target.files?.[0]) setUploads(p => ({ ...p, [fieldKey]: e.target.files[0] })); }} />
+    </div>
+  );
+}
+
+// ── Notary Requests View (full interactive — same as notary dashboard) ──
 function ViewNotaryRequests({ user, addAlert }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [selected, setSelected] = useState(null);
+  const [filter, setFilter] = useState('pending');
+  const [apptModal, setApptModal] = useState(null);
+  const [stampModal, setStampModal] = useState(null);
+  const [sendModal, setSendModal] = useState(null);
+  const [formData, setFormData] = useState(null);
+  const [uploads, setUploads] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [uploadedRequests, setUploadedRequests] = useState({});
+  const [notarizedDocs, setNotarizedDocs] = useState({});
+  const [docsModal, setDocsModal] = useState(null);
+  const [docsData, setDocsData] = useState(null);
+  const [docsLoading, setDocsLoading] = useState(false);
 
-  async function load() {
-    setLoading(true);
+  async function load(silent = false) {
+    if (!silent) setLoading(true);
     try {
       const r = await fetch(`${API}/sector/notary-requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          sector_id: user?.sector_id,
-          sector_name: user?.sector_name 
+        body: JSON.stringify({ sector_id: user?.sector_id, sector_name: user?.sector_name }),
+      });
+      const d = await r.json();
+      if (d.success) setRequests(d.requests || []);
+    } catch { if (!silent) addAlert('Cannot load requests', 'error'); }
+    if (!silent) setLoading(false);
+  }
+
+  async function loadForm(formId) {
+    if (!formId) return;
+    try {
+      const r = await fetch(`${API}/sale-form/get`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ form_id: formId }),
+      });
+      const d = await r.json();
+      if (d.success) setFormData(d.form);
+    } catch {}
+  }
+
+  async function loadDocuments(requestId) {
+    setDocsLoading(true); setDocsData(null);
+    try {
+      const r = await fetch(`${API}/notary-request/documents/list`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: requestId }),
+      });
+      const d = await r.json();
+      if (d.success) setDocsData(d);
+      else addAlert(d.message || 'Failed to load documents', 'error');
+    } catch { addAlert('Cannot connect', 'error'); }
+    setDocsLoading(false);
+  }
+
+  async function verifyDocument(docId, requestId) {
+    try {
+      const r = await fetch(`${API}/notary-request/documents/verify`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document_id: docId, request_id: requestId, verified: true }),
+      });
+      const d = await r.json();
+      if (d.success) { addAlert('Document verified!', 'success'); loadDocuments(requestId); load(true); }
+      else addAlert(d.message || 'Verification failed', 'error');
+    } catch { addAlert('Cannot connect', 'error'); }
+  }
+
+  async function verifyAllDocuments(requestId) {
+    try {
+      const r = await fetch(`${API}/notary-request/documents/verify-all`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: requestId, verified: true }),
+      });
+      const d = await r.json();
+      if (d.success) { addAlert('All documents verified!', 'success'); loadDocuments(requestId); load(true); }
+      else addAlert(d.message || 'Verification failed', 'error');
+    } catch { addAlert('Cannot connect', 'error'); }
+  }
+
+  useEffect(() => { if (user?.sector_id || user?.sector_name) load(); }, [user?.sector_id, user?.sector_name]);
+  useEffect(() => {
+    const interval = setInterval(() => { if (user?.sector_id || user?.sector_name) load(true); }, 15000);
+    return () => clearInterval(interval);
+  }, [user?.sector_id, user?.sector_name]);
+
+  async function setAppointment(req) {
+    if (!apptModal?.date) { addAlert('Please select a date', 'error'); return; }
+    setSaving(true);
+    try {
+      const r = await fetch(`${API}/notary-request/set-appointment`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request_id: req.id, agreement_id: req.agreement_id,
+          appointment_date: apptModal.date, appointment_time: apptModal.time,
+          location: apptModal.location,
         }),
       });
       const d = await r.json();
-      if (d.success) {
-        console.log('Notary requests loaded:', d.requests); // Debug log
-        setRequests(d.requests || []);
-      } else {
-        addAlert(d.message || 'Failed to load notary requests', 'error');
-      }
-    } catch (err) { 
-      console.error('Error loading notary requests:', err);
-      addAlert('Cannot load notary requests', 'error'); 
-    }
-    setLoading(false);
+      if (d.success) { addAlert('Appointment set! Buyer and seller will be notified.', 'success'); setApptModal(null); load(); }
+      else addAlert(d.message || 'Failed', 'error');
+    } catch { addAlert('Cannot connect', 'error'); }
+    setSaving(false);
   }
 
-  useEffect(() => { 
-    if (user?.sector_id || user?.sector_name) {
-      load(); 
-    }
-  }, [user?.sector_id, user?.sector_name]);
-
-  const statusColor = s => ({
-    pending: '#f59e0b',
-    appointment_set: '#0891b2',
-    stamped: '#7c3aed',
-    sent_to_district: '#22c55e',
-    sent_to_admin: '#22c55e',
-  }[s] || '#94a3b8');
-
-  const statusLabel = s => ({
-    pending: 'Pending',
-    appointment_set: 'Appointment Set',
-    stamped: 'Stamped & Signed',
-    sent_to_district: 'Sent to District',
-    sent_to_admin: 'Sent to Admin',
-  }[s] || s || 'Unknown');
-
-  const filtered = requests.filter(r => filter === 'all' ? true : r.status === filter);
-
-  // Safe formatter for dates
-  const safeFmtDate = (date) => {
-    if (!date) return '—';
+  async function uploadDocuments(req) {
+    const files = Object.entries(uploads).filter(([, v]) => v);
+    if (!uploads.signed_agreement) { addAlert('Notarized Document is required before uploading.', 'error'); return; }
+    if (files.length === 0) { addAlert('Please select at least one file', 'error'); return; }
+    setSaving(true);
     try {
-      return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    } catch {
-      return '—';
-    }
+      for (const [key, file] of files) {
+        const fd = new FormData();
+        fd.append('request_id', req.id); fd.append('agreement_id', req.agreement_id);
+        fd.append('doc_type', key); fd.append(key, file);
+        await fetch(`${API}/notary-documents/upload`, { method: 'POST', body: fd });
+      }
+      addAlert(`${files.length} document(s) uploaded successfully.`, 'success');
+      setNotarizedDocs(prev => ({ ...prev, [req.id]: uploads.signed_agreement }));
+      setUploads({});
+      setUploadedRequests(prev => ({ ...prev, [req.id]: true }));
+    } catch { addAlert('Upload failed', 'error'); }
+    setSaving(false);
+  }
+
+  async function stampAndSign(req) {
+    if (!stampModal?.cert_number) { addAlert('Certificate number is required', 'error'); return; }
+    setSaving(true);
+    try {
+      const fd = new FormData();
+      fd.append('request_id', req.id); fd.append('agreement_id', req.agreement_id);
+      fd.append('cert_number', stampModal.cert_number);
+      fd.append('signed_date', stampModal.signed_date || new Date().toISOString().split('T')[0]);
+      if (stampModal.stamped_doc) fd.append('stamped_doc', stampModal.stamped_doc);
+      const r = await fetch(`${API}/notary-request/stamp`, { method: 'POST', body: fd });
+      const d = await r.json();
+      if (d.success) { addAlert('Documents stamped and signed!', 'success'); setStampModal(null); load(); }
+      else addAlert(d.message || 'Failed', 'error');
+    } catch { addAlert('Cannot connect', 'error'); }
+    setSaving(false);
+  }
+
+  // Sector always sends to District
+  async function sendToDistrict(req) {
+    setSaving(true);
+    try {
+      const r = await fetch(`${API}/notary-request/send-to-district`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request_id: req.id, agreement_id: req.agreement_id,
+          notary_id: user?.id, upi: req.upi,
+          notes: sendModal?.notes || '',
+        }),
+      });
+      const d = await r.json();
+      if (d.success) { addAlert(`Documents sent to District! Ref: ${d.district_ref}`, 'success'); setSendModal(null); load(); }
+      else addAlert(d.message || 'Failed', 'error');
+    } catch { addAlert('Cannot connect', 'error'); }
+    setSaving(false);
+  }
+
+  const statusColor = s => ({ pending: '#f59e0b', appointment_set: '#0891b2', stamped: '#7c3aed', sent_to_district: '#22c55e', sent_to_admin: '#22c55e' }[s] || '#94a3b8');
+  const statusLabel = s => ({ pending: 'Pending', appointment_set: 'Appointment Set', stamped: 'Stamped & Signed', sent_to_district: 'Sent to District', sent_to_admin: 'Sent to Admin' }[s] || s);
+
+  const filtered = requests.filter(r => {
+    if (filter === 'all') return true;
+    if (filter === 'sent_to_district') return r.status === 'sent_to_district' || r.status === 'sent_to_admin';
+    return r.status === filter;
+  });
+
+  const getDocLabel = (docType) => {
+    const labels = { signed_agreement: 'Notarized Document', official_form: 'Official Form', support_doc_1: 'Supporting Document 1', support_doc_2: 'Supporting Document 2', stamped_agreement: 'Stamped Agreement', seller_id: 'Seller National ID', spouse_id: 'Spouse National ID', buyer_id: 'Buyer National ID', land_title: 'Land Title Document', civil_cert_seller: 'Civil Status Certificate - Seller', civil_cert_buyer: 'Civil Status Certificate - Buyer' };
+    return labels[docType] || docType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
 
   return (
     <div className="view">
+      {/* Documents Modal */}
+      {docsModal && (
+        <div className="m-overlay" onClick={() => { setDocsModal(null); setDocsData(null); }}>
+          <div className="m-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 600, width: '90vw', height: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0, padding: '20px 24px 0', position: 'sticky', top: 0, background: 'white', zIndex: 10 }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>Review Documents</div>
+                <div style={{ fontSize: 12, color: '#4d7c77', marginTop: 2 }}>UPI: {docsModal.upi}</div>
+              </div>
+              <button className="x-close-btn" onClick={() => { setDocsModal(null); setDocsData(null); }}>✕</button>
+            </div>
+            <div style={{ overflowY: 'scroll', flex: 1, scrollbarWidth: 'none', msOverflowStyle: 'none', padding: '0 24px 16px' }}>
+              {docsLoading && <div style={{ padding: 30, textAlign: 'center', color: '#4d7c77' }}>Loading documents...</div>}
+              {!docsLoading && docsData && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, position: 'sticky', top: 0, background: 'white', zIndex: 9, paddingTop: 4, paddingBottom: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#4d7c77', textTransform: 'uppercase' }}>Documents ({docsData.total || 0})</div>
+                    <button className="btn-p" style={{ padding: '6px 12px', fontSize: 11, background: 'linear-gradient(135deg,#10b981,#059669)' }}
+                      onClick={() => verifyAllDocuments(docsModal.id)}>✓ Verify All Documents</button>
+                  </div>
+                  {(!docsData.documents || docsData.documents.length === 0) && (
+                    <div style={{ textAlign: 'center', color: '#94a3b8', padding: '24px 0', fontSize: 13 }}>No documents found.</div>
+                  )}
+                  {docsData.documents && docsData.documents.map((doc, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: doc.verified ? 'rgba(13,148,136,.05)' : doc.source === 'notary' ? '#f0fdfa' : '#eff6ff', border: `1px solid ${doc.verified ? '#86efac' : (doc.source === 'notary' ? '#ccf2ee' : '#bfdbfe')}`, borderRadius: 10, marginBottom: 8 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: doc.source === 'notary' ? '#0d9488' : '#0891b2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'white', fontSize: 12 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'capitalize' }}>{getDocLabel(doc.doc_type)}</div>
+                        <div style={{ fontSize: 11, color: '#4d7c77', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.original_name || doc.file_path || '—'}</div>
+                        <div style={{ fontSize: 10, color: doc.source === 'notary' ? '#0d9488' : '#0891b2', marginTop: 1 }}>Source: {doc.source === 'notary' ? 'Notary Uploaded' : 'Buyer/Seller Uploaded'}</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        {doc.verified ? (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: 'rgba(22,163,74,.1)', color: '#16a34a' }}>✓ Verified</span>
+                        ) : (
+                          <button className="tbl-btn" style={{ background: 'rgba(13,148,136,.1)', color: '#0d9488' }} onClick={() => verifyDocument(doc.id, docsModal.id)}>Mark Verified</button>
+                        )}
+                        {doc.file_path && (
+                          <a href={`${API}/uploads/${doc.file_path}`} target="_blank" rel="noopener noreferrer" className="tbl-btn" style={{ background: 'rgba(8,145,178,.1)', color: '#0891b2', textDecoration: 'none' }}>View</a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Modal */}
+      {apptModal && (
+        <div className="m-overlay" onClick={() => setApptModal(null)}>
+          <div className="m-box m-animate" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div className="card-hd" style={{ borderRadius: '22px 22px 0 0', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Ic.Search /> Set Appointment Date</span>
+              <button onClick={() => setApptModal(null)} className="x-close-btn" style={{ color: 'rgba(255,255,255,.7)' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div style={{ padding: '0 24px 24px' }}>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label">Appointment Date *</label>
+                  <input className="f-inp" type="date" min={new Date().toISOString().split('T')[0]}
+                    value={apptModal.date || ''} onChange={e => setApptModal(p => ({ ...p, date: e.target.value, timeError: '' }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Time</label>
+                  <input className="f-inp" type="time" value={apptModal.time || ''}
+                    onChange={e => {
+                      const selectedTime = e.target.value;
+                      let timeError = '';
+                      if (apptModal.date && selectedTime) {
+                        const dt = new Date(`${apptModal.date}T${selectedTime}`);
+                        if (dt < new Date()) timeError = 'Cannot select past time.';
+                      }
+                      setApptModal(p => ({ ...p, time: selectedTime, timeError }));
+                    }} />
+                  {apptModal.timeError && <div style={{ fontSize: 11, color: '#ef4444', marginTop: 3 }}>{apptModal.timeError}</div>}
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Location / Office Address</label>
+                <input className="f-inp" value={apptModal.location || ''} onChange={e => setApptModal(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Sector Office Location" />
+              </div>
+              <button className="btn-pred" style={{ flex: 1, margin: 0, padding: '11px' }}
+                onClick={() => { if (!apptModal.date) { addAlert('Please select a date', 'error'); return; } if (apptModal.timeError) { addAlert(apptModal.timeError, 'error'); return; } setAppointment(apptModal.req); }}
+                disabled={saving || !apptModal.date}>
+                {saving ? <><Ic.Spin /> Setting…</> : 'Confirm Appointment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stamp Modal */}
+      {stampModal && (
+        <div className="m-overlay" onClick={() => setStampModal(null)}>
+          <div className="m-box m-animate" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div className="card-hd" style={{ borderRadius: '22px 22px 0 0', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Ic.Records /> Stamp &amp; Sign Documents</span>
+              <button onClick={() => setStampModal(null)} className="x-close-btn" style={{ color: 'rgba(255,255,255,.7)' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div style={{ padding: '0 24px 24px' }}>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label">Certificate / Ref Number *</label>
+                  <input className="f-inp" value={stampModal.cert_number || ''} onChange={e => setStampModal(p => ({ ...p, cert_number: e.target.value }))} placeholder="e.g. CERT-2026-001" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Signing Date</label>
+                  <input className="f-inp" type="date" max={new Date().toISOString().split('T')[0]}
+                    value={stampModal.signed_date || ''} onChange={e => setStampModal(p => ({ ...p, signed_date: e.target.value }))} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Notarized Document to Stamp</label>
+                <div className="upload-zone" onClick={() => !stampModal.stamped_doc && document.getElementById('sector-stamp-file-input')?.click()} style={{ cursor: stampModal.stamped_doc ? 'default' : 'pointer' }}>
+                  {stampModal.stamped_doc ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#0d9488', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>✓</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#0d9488' }}>{stampModal.stamped_doc.name}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4d7c77" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      </div>
+                      <div style={{ fontSize: 13, color: '#4d7c77', fontWeight: 600 }}>Upload stamped agreement</div>
+                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>PDF, JPG, PNG</div>
+                    </>
+                  )}
+                </div>
+                <input id="sector-stamp-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
+                  onChange={e => { if (e.target.files?.[0]) setStampModal(p => ({ ...p, stamped_doc: e.target.files[0] })); }} />
+              </div>
+              <button className="btn-pred" style={{ margin: 0, padding: '11px', background: 'linear-gradient(135deg,#7c3aed,#0d9488)' }}
+                onClick={() => { if (!stampModal.cert_number) { addAlert('Certificate number is required', 'error'); return; } stampAndSign(stampModal.req); }}
+                disabled={saving}>
+                {saving ? <><Ic.Spin /> Stamping…</> : 'Confirm Stamp & Sign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send to District Modal */}
+      {sendModal && (
+        <div className="m-overlay" onClick={() => setSendModal(null)}>
+          <div className="m-box m-animate" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <div className="card-hd" style={{ borderRadius: '22px 22px 0 0', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Ic.Send /> Send to District</span>
+              <button onClick={() => setSendModal(null)} className="x-close-btn" style={{ color: 'rgba(255,255,255,.7)' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div style={{ padding: '0 24px 24px' }}>
+              <div className="info-banner" style={{ marginBottom: 16 }}>
+                <Ic.Info />
+                <span>All uploaded documents will be forwarded digitally to the District. This action will finalize the land transfer process.</span>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Notes (optional)</label>
+                <textarea className="f-inp" rows={3} value={sendModal.notes || ''} onChange={e => setSendModal(p => ({ ...p, notes: e.target.value }))} placeholder="Any notes for the District Officer…" />
+              </div>
+              <button className="btn-pred" style={{ margin: 0, padding: '11px', background: 'linear-gradient(135deg,#22c55e,#0d9488)' }}
+                onClick={() => sendToDistrict(sendModal.req)} disabled={saving}>
+                {saving ? <><Ic.Spin /> Sending…</> : <><Ic.Send /> Confirm Send to District</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-hd" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Ic.Bell /> Notary Requests - {user?.sector_name || 'My Sector'} ({filtered.length})
-          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Ic.Bell /> Notary Requests — {user?.sector_name || 'My Sector'}</span>
           <div style={{ display: 'flex', gap: 6, background: 'rgba(255,255,255,.15)', borderRadius: 40, padding: 3 }}>
-            {[['all', 'All'], ['pending', 'Pending'], ['appointment_set', 'Appointed'], ['stamped', 'Stamped'], ['sent_to_district', 'Sent']].map(([v, l]) => (
+            {[['pending', 'Pending'], ['appointment_set', 'Appointed'], ['stamped', 'Stamped'], ['sent_to_district', 'Sent'], ['all', 'All']].map(([v, l]) => (
               <button key={v} onClick={() => setFilter(v)}
-                style={{ padding: '5px 12px', borderRadius: 40, border: 'none', background: filter === v ? 'white' : 'transparent', color: filter === v ? '#0d9488' : 'rgba(255,255,255,.8)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Times New Roman",Times,serif', transition: 'all .15s' }}>
-                {l}
-              </button>
+                style={{ padding: '5px 12px', borderRadius: 40, border: 'none', background: filter === v ? 'white' : 'transparent', color: filter === v ? '#0d9488' : 'rgba(255,255,255,.8)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Times New Roman",Times,serif', transition: 'all .15s' }}>{l}</button>
             ))}
           </div>
         </div>
 
         {loading && <div className="loading-state"><Ic.Spin /> Loading requests…</div>}
-        {!loading && filtered.length === 0 && (
-          <div className="empty-state">
-            No notary requests found in {user?.sector_name || 'your sector'}.
-          </div>
-        )}
+        {!loading && filtered.length === 0 && <div className="empty-state">No {filter === 'all' ? '' : filter.replace('_', ' ')} requests in {user?.sector_name || 'your sector'}.</div>}
 
         {!loading && filtered.map(req => (
           <div key={req.id} style={{ borderTop: '1px solid var(--g200)', padding: '16px 20px', borderLeft: req.status === 'pending' ? '3px solid #f59e0b' : '3px solid transparent' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0d9488', fontSize: 13 }}>
-                    {req.request_ref || `NR-${req.id}`}
-                  </span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: statusColor(req.status) }}>
-                    ● {statusLabel(req.status)}
-                  </span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0d9488', fontSize: 13 }}>{req.request_ref || `NR-${req.id}`}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: statusColor(req.status) }}>● {statusLabel(req.status)}</span>
                 </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#4d7c77' }}>
-                  {req.upi || '—'}
-                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#4d7c77' }}>{req.upi}</div>
                 <div style={{ fontSize: 13, marginTop: 4 }}>
-                  <strong>{req.seller_name || 'Unknown Seller'}</strong> → <strong>{req.buyer_name || 'Unknown Buyer'}</strong>
-                  {req.agreed_price && Number(req.agreed_price) > 0 && <> &nbsp;|&nbsp; {fmt(Number(req.agreed_price))}</>}
+                  <strong>{req.seller_name}</strong> → <strong>{req.buyer_name}</strong>
+                  {req.agreed_price && <> &nbsp;|&nbsp; {fmt(req.agreed_price)}</>}
                 </div>
-                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                  {req.created_at ? fmtDate(req.created_at) : '—'}
-                </div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{fmtDate(req.created_at)}</div>
                 {req.appointment_date && (
-                  <div style={{ fontSize: 12, color: '#0891b2', fontWeight: 600, marginTop: 4, display:'flex', alignItems:'center', gap:5 }}>
+                  <div style={{ fontSize: 12, color: '#0891b2', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Appointment: {safeFmtDate(req.appointment_date)} {req.appointment_time && `at ${req.appointment_time}`}
+                    Appointment: {fmtDate(req.appointment_date)} {req.appointment_time && `at ${req.appointment_time}`}
                     {req.appointment_location && ` — ${req.appointment_location}`}
                   </div>
                 )}
                 <div style={{ fontSize: 11, color: '#4d7c77', marginTop: 2 }}>
-                  Notary: <strong>{req.notary_name || '—'}</strong> 
+                  Notary: <strong>{req.notary_name || '—'}</strong>
                   {req.notary_type && <span style={{ marginLeft: 8, fontSize: 10, padding: '2px 6px', borderRadius: 12, background: 'rgba(13,148,136,.1)', color: '#0d9488' }}>{req.notary_type === 'private' ? 'Private' : 'Sector'}</span>}
                 </div>
               </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn-p" style={{ padding: '6px 14px', fontSize: 12 }}
+                  onClick={() => { if (selected?.id === req.id) { setSelected(null); setFormData(null); } else { setSelected(req); loadForm(req.form_id); } }}>
+                  {selected?.id === req.id ? 'Close' : 'View'}
+                </button>
+                <button className="btn-p" style={{ padding: '6px 14px', fontSize: 12, background: 'linear-gradient(135deg,#2563eb,#1d4ed8)' }}
+                  onClick={() => { setDocsModal(req); loadDocuments(req.id); }}>
+                  Review Docs
+                </button>
+              </div>
             </div>
+
+            {selected?.id === req.id && (
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--g200)' }}>
+                {formData && (
+                  <div style={{ background: 'var(--teal-l)', border: '1px solid var(--g200)', borderRadius: 14, padding: '14px 16px', marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 10 }}>Form 11.a &amp; 11.b Data</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+                      {[
+                        ['Seller Name', formData.seller_name], ['Seller National ID', formData.seller_national_id],
+                        ['Seller Phone', formData.seller_phone], ['Buyer Name', formData.buyer_name],
+                        ['Buyer National ID', formData.buyer_national_id], ['UPI', formData.upi],
+                        ['Land Value', formData.land_value ? fmt(formData.land_value) : '—'],
+                        ['Development Value', formData.development_value > 0 ? fmt(formData.development_value) : '—'],
+                        ['Agreed Price', formData.agreed_price ? fmt(formData.agreed_price) : '—'],
+                        ['Married', formData.married === 'yes' ? 'Yes' : 'No'],
+                        ['Spouse Name', formData.spouse_name || '—'], ['Form Ref', formData.form_ref],
+                      ].map(([k, v]) => (
+                        <div key={k} style={{ background: 'white', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--g200)' }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#4d7c77', textTransform: 'uppercase', letterSpacing: '.4px' }}>{k}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{v || '—'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* STEP 1 — Set Appointment */}
+                  {req.status === 'pending' && (
+                    <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 12, padding: '14px 16px' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: '#92400e' }}>Step 1 — Set Appointment</div>
+                      <div style={{ fontSize: 12, color: '#b45309', marginBottom: 10 }}>Review the form data above, then set an appointment date for the seller and buyer to come in person to sign.</div>
+                      <button className="btn-p" style={{ padding: '8px 20px', fontSize: 13 }}
+                        onClick={() => setApptModal({ req, date: '', time: '', location: '', timeError: '' })}>
+                        Set Appointment Date
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Step 1 done */}
+                  {(req.status === 'appointment_set' || req.status === 'stamped' || req.status === 'sent_to_district' || req.status === 'sent_to_admin') && (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      </span>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>
+                        Step 1 Done — Appointment: {fmtDate(req.appointment_date)} {req.appointment_time && `at ${req.appointment_time}`}{req.appointment_location && ` — ${req.appointment_location}`}
+                      </div>
+                    </div>
+                  )}
+
+                  {req.status === 'appointment_set' && new Date() < new Date(req.appointment_date) && (
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Ic.Info />
+                      <div style={{ fontSize: 12, color: '#1d4ed8', fontWeight: 600 }}>Step 2 unlocks on {fmtDate(req.appointment_date)} — the appointment date must be reached before uploading documents.</div>
+                    </div>
+                  )}
+
+                  {/* STEP 2 — Upload Documents */}
+                  {req.status === 'appointment_set' && !uploadedRequests[req.id] && new Date() >= new Date(req.appointment_date) && (
+                    <div style={{ background: 'var(--teal-l)', border: '1px solid var(--g200)', borderRadius: 12, padding: '14px 16px' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: '#0d9488' }}>Step 2 — Upload Notary Documents</div>
+                      <div style={{ fontSize: 12, color: '#4d7c77', marginBottom: 10 }}>The <strong>Notarized Document is required</strong> — this is the document you will stamp and sign.</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                        <UploadField label="Notarized Document *" fieldKey="signed_agreement" uploads={uploads} setUploads={setUploads} required />
+                        <UploadField label="Official Form (optional)" fieldKey="official_form" uploads={uploads} setUploads={setUploads} />
+                        <UploadField label="Supporting Document 1 (optional)" fieldKey="support_doc_1" uploads={uploads} setUploads={setUploads} />
+                        <UploadField label="Supporting Document 2 (optional)" fieldKey="support_doc_2" uploads={uploads} setUploads={setUploads} />
+                      </div>
+                      {!uploads.signed_agreement && (
+                        <div style={{ fontSize: 12, color: '#dc2626', fontWeight: 600, marginBottom: 8 }}>Notarized Document must be uploaded to continue.</div>
+                      )}
+                      <button className="btn-p" style={{ padding: '8px 20px', fontSize: 13, opacity: uploads.signed_agreement ? 1 : 0.5 }}
+                        onClick={() => uploadDocuments(req)} disabled={saving || !uploads.signed_agreement}>
+                        {saving ? <><Ic.Spin /> Uploading…</> : 'Upload Documents'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Step 2 done */}
+                  {req.status === 'appointment_set' && uploadedRequests[req.id] && (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      </span>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>Step 2 Done — Notarized Document uploaded.</div>
+                    </div>
+                  )}
+                  {(req.status === 'stamped' || req.status === 'sent_to_district') && (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      </span>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>Step 2 Done — Notary documents uploaded.</div>
+                    </div>
+                  )}
+
+                  {/* STEP 3 — Stamp & Sign */}
+                  {req.status === 'appointment_set' && uploadedRequests[req.id] && (
+                    <div style={{ background: 'rgba(124,58,237,.05)', border: '1px solid rgba(124,58,237,.2)', borderRadius: 12, padding: '14px 16px' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: '#7c3aed' }}>Step 3 — Stamp &amp; Sign</div>
+                      <div style={{ fontSize: 12, color: '#6d28d9', marginBottom: 10 }}>Stamp and sign the <strong>Notarized Document</strong> uploaded in Step 2.</div>
+                      <button className="btn-p" style={{ padding: '8px 20px', fontSize: 13, background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}
+                        onClick={() => setStampModal({ req, cert_number: '', signed_date: new Date().toISOString().split('T')[0], stamped_doc: notarizedDocs[req.id] || null })}>
+                        <Ic.Records /> Stamp &amp; Sign Notarized Document
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Step 3 done */}
+                  {(req.status === 'stamped' || req.status === 'sent_to_district') && (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      </span>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>Step 3 Done — Documents stamped and signed.</div>
+                    </div>
+                  )}
+
+                  {/* STEP 4 — Send to District */}
+                  {req.status === 'stamped' && (
+                    <div style={{ background: 'rgba(34,197,94,.05)', border: '1px solid rgba(34,197,94,.2)', borderRadius: 12, padding: '14px 16px' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: '#15803d' }}>Step 4 — Send to District</div>
+                      <div style={{ fontSize: 12, color: '#166534', marginBottom: 10 }}>All documents are stamped. Forward the complete mutation package to the District Land Officer.</div>
+                      <button className="btn-p" style={{ padding: '8px 20px', fontSize: 13, background: 'linear-gradient(135deg,#22c55e,#0d9488)' }}
+                        onClick={() => setSendModal({ req })}>
+                        <Ic.Send /> Send to District
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Sent done */}
+                  {(req.status === 'sent_to_district' || req.status === 'sent_to_admin') && (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      </span>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>Step 4 Done — Mutation sent to District.</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

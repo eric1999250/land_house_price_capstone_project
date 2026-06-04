@@ -38,3 +38,5 @@ print(hashed)
 #     (SELECT id FROM roles WHERE name = 'admin'),
 #     'approved'
 # );
+
+#psql postgresql://land_price_db_user:uCYwMtRvFKenEFCjbNlIY0k0rqEJeI6N@dpg-d8en2e8js32c738kv6g0-a.oregon-postgres.render.com/land_price_db
