@@ -76,9 +76,7 @@ const Ic = {
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: 'Home' },
-  { id: 'verify', label: 'Verify Land Info', icon: 'Map' },
   { id: 'notary-requests', label: 'Notary Requests', icon: 'Bell' },
-  { id: 'mutations', label: 'Mutations', icon: 'Shield' },
   { id: 'records', label: 'Recorded Deeds', icon: 'Records' },
   { id: 'pricechek', label: 'Price Check', icon: 'Search' },
   { id: 'reports', label: 'Reports', icon: 'Report' },
@@ -143,24 +141,24 @@ function ViewDashboard({ setActive, stats }) {
     <div className="view">
       <div className="stats-grid">
         {[
-          { label: 'Parcels Entered', value: stats.entered || 0, color: '#0d9488', sub: 'registered', target: 'input' },
-          { label: 'Parcels Verified', value: stats.verified || 0, color: '#0891b2', sub: 'confirmed', target: 'verify' },
-          { label: 'Pending Mutations', value: stats.pending || 0, color: '#f59e0b', sub: 'awaiting review', target: 'mutations' },
-          { label: 'Approved Mutations', value: stats.approved || 0, color: '#22c55e', sub: 'completed', target: 'records' },
+          { label: 'Pending Requests', value: stats.pending || 0, color: '#f59e0b', sub: 'awaiting action', target: 'notary-requests' },
+          { label: 'Appointments Set', value: stats.appointment_set || 0, color: '#0891b2', sub: 'scheduled', target: 'notary-requests' },
+          { label: 'Stamped & Signed', value: stats.stamped || 0, color: '#7c3aed', sub: 'completed', target: 'notary-requests' },
+          { label: 'Recorded Deeds', value: stats.approved || 0, color: '#22c55e', sub: 'transferred', target: 'records' },
         ].map(s => (
           <div key={s.label} className="stat-card clickable" style={{ '--c': s.color, cursor: 'pointer' }} onClick={() => setActive(s.target)}>
             <div className="stat-value">{s.value}</div>
             <div className="stat-label">{s.label}</div>
             <div className="stat-sub">{s.sub}</div>
-            </div>
+          </div>
         ))}
       </div>
       <div className="section-label">QUICK ACTIONS</div>
       <div className="qa-grid">
         {[
-          { label: 'Verify Land Info', desc: 'Search & verify UPI', id: 'verify', color: '#0891b2' },
-          { label: 'Mutations', desc: 'Review land transfer mutations', id: 'mutations', color: '#f59e0b' },
-          { label: 'Recorded Deeds', desc: 'All approved land transfers', id: 'records', color: '#22c55e' },
+          { label: 'Notary Requests', desc: 'Review, set appointments, stamp & send', id: 'notary-requests', color: '#0d9488' },
+          { label: 'Recorded Deeds', desc: 'All completed land transfers', id: 'records', color: '#22c55e' },
+          { label: 'Price Check', desc: 'Verify agreed price against ML model', id: 'pricechek', color: '#0891b2' },
           { label: 'Reports', desc: 'Generate & send to district', id: 'reports', color: '#7c3aed' },
         ].map(q => (
           <button key={q.id} className="qa-card" onClick={() => setActive(q.id)}>
@@ -1693,16 +1691,14 @@ export default function SectorDashboard() {
   const initials = user?.name?.split(' ').filter(Boolean).slice(0,2).map(n => n[0]?.toUpperCase()).join('') || 'SO';
 
   const TITLES = {
-    dashboard: 'My Dashboard', verify: 'Verify Land Info', 'notary-requests': 'Notary Requests',
-    mutations: 'Mutations', records: 'Recorded Deeds', reports: 'Reports', pricechek: 'Price Check',
+    dashboard: 'My Dashboard', 'notary-requests': 'Notary Requests',
+    records: 'Recorded Deeds', reports: 'Reports', pricechek: 'Price Check',
   };
 
   function renderContent() {
     switch (active) {
       case 'dashboard': return <ViewDashboard setActive={setActive} stats={stats} />;
-      case 'verify': return <ViewVerify user={user} addAlert={addAlert} />;
       case 'notary-requests': return <ViewNotaryRequests user={user} addAlert={addAlert} />;
-      case 'mutations': return <ViewMutations addAlert={addAlert} />;
       case 'records': return <ViewRecords addAlert={addAlert} />;
       case 'reports': return <ViewReports user={user} addAlert={addAlert} />;
       case 'pricechek': return <ViewPriceCheck addAlert={addAlert} />;
