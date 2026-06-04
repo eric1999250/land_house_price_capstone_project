@@ -192,14 +192,24 @@ function ViewNotaryRequests({ user, addAlert }) {
         }),
       });
       const d = await r.json();
-      if (d.success) setRequests(d.requests || []);
-    } catch { 
+      if (d.success) {
+        console.log('Notary requests loaded:', d.requests); // Debug log
+        setRequests(d.requests || []);
+      } else {
+        addAlert(d.message || 'Failed to load notary requests', 'error');
+      }
+    } catch (err) { 
+      console.error('Error loading notary requests:', err);
       addAlert('Cannot load notary requests', 'error'); 
     }
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, [user?.sector_id, user?.sector_name]);
+  useEffect(() => { 
+    if (user?.sector_id || user?.sector_name) {
+      load(); 
+    }
+  }, [user?.sector_id, user?.sector_name]);
 
   const statusColor = s => ({
     pending: '#f59e0b',
@@ -215,9 +225,19 @@ function ViewNotaryRequests({ user, addAlert }) {
     stamped: 'Stamped & Signed',
     sent_to_district: 'Sent to District',
     sent_to_admin: 'Sent to Admin',
-  }[s] || s);
+  }[s] || s || 'Unknown');
 
   const filtered = requests.filter(r => filter === 'all' ? true : r.status === filter);
+
+  // Safe formatter for dates
+  const safeFmtDate = (date) => {
+    if (!date) return '—';
+    try {
+      return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return '—';
+    }
+  };
 
   return (
     <div className="view">
@@ -239,7 +259,7 @@ function ViewNotaryRequests({ user, addAlert }) {
         {loading && <div className="loading-state"><Ic.Spin /> Loading requests…</div>}
         {!loading && filtered.length === 0 && (
           <div className="empty-state">
-            No notary requests in {user?.sector_name || 'your sector'}.
+            No notary requests found in {user?.sector_name || 'your sector'}.
           </div>
         )}
 
@@ -248,24 +268,33 @@ function ViewNotaryRequests({ user, addAlert }) {
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0d9488', fontSize: 13 }}>{req.request_ref}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: statusColor(req.status) }}>● {statusLabel(req.status)}</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0d9488', fontSize: 13 }}>
+                    {req.request_ref || `NR-${req.id}`}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: statusColor(req.status) }}>
+                    ● {statusLabel(req.status)}
+                  </span>
                 </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#4d7c77' }}>{req.upi}</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#4d7c77' }}>
+                  {req.upi || '—'}
+                </div>
                 <div style={{ fontSize: 13, marginTop: 4 }}>
-                  <strong>{req.seller_name}</strong> → <strong>{req.buyer_name}</strong>
-                  {req.agreed_price && <> &nbsp;|&nbsp; {fmt(req.agreed_price)}</>}
+                  <strong>{req.seller_name || 'Unknown Seller'}</strong> → <strong>{req.buyer_name || 'Unknown Buyer'}</strong>
+                  {req.agreed_price && Number(req.agreed_price) > 0 && <> &nbsp;|&nbsp; {fmt(Number(req.agreed_price))}</>}
                 </div>
-                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{fmtDate(req.created_at)}</div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                  {req.created_at ? fmtDate(req.created_at) : '—'}
+                </div>
                 {req.appointment_date && (
                   <div style={{ fontSize: 12, color: '#0891b2', fontWeight: 600, marginTop: 4, display:'flex', alignItems:'center', gap:5 }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0891b2" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Appointment: {fmtDate(req.appointment_date)} {req.appointment_time && `at ${req.appointment_time}`}
+                    Appointment: {safeFmtDate(req.appointment_date)} {req.appointment_time && `at ${req.appointment_time}`}
                     {req.appointment_location && ` — ${req.appointment_location}`}
                   </div>
                 )}
                 <div style={{ fontSize: 11, color: '#4d7c77', marginTop: 2 }}>
-                  Notary: <strong>{req.notary_name || '—'}</strong> ({req.notary_type || 'sector'})
+                  Notary: <strong>{req.notary_name || '—'}</strong> 
+                  {req.notary_type && <span style={{ marginLeft: 8, fontSize: 10, padding: '2px 6px', borderRadius: 12, background: 'rgba(13,148,136,.1)', color: '#0d9488' }}>{req.notary_type === 'private' ? 'Private' : 'Sector'}</span>}
                 </div>
               </div>
             </div>
