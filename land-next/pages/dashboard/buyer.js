@@ -1901,7 +1901,7 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
 
             <div className="form-group">
               <label className="form-label">Description (optional)</label>
-              <textarea className="f-inp" rows={2} value={pubForm.description} onChange={e => setPubForm(f => ({ ...f, description: e.target.value }))} placeholder="Location details, features…" />
+              <textarea className="f-inp" rows={2} value={pubForm.description} onChange={e => setPubForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe..." />
             </div>
             <button className="btn-pred" onClick={publish} disabled={pubLoading}>
               {pubLoading ? <><Ic.Spin /> Publishing…</> : <><Ic.Tag /> Publish Listing</>}
