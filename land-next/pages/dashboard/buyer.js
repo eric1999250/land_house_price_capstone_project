@@ -1318,16 +1318,16 @@ function ViewNotaryRequest({ user, agreement, addAlert, onRequestSent, onBack })
     if (!sectorName) { setNotaries([]); setSelected(null); return; }
     setLoadingNotaries(true);
     setSelected(null);
-    fetch(`${API}/notaries/all`, {
+    fetch(`${API}/admin/users/by-role`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}'
+      body: JSON.stringify({ role: 'sector_land_officer' })
     })
       .then(r => r.json())
       .then(d => {
         if (d.success) {
-          const all = d.notaries || [];
-          const sectorFiltered = all.filter(n => {
+          const allNotaries = d.users || [];  // Changed from d.notaries to d.users
+          const sectorFiltered = allNotaries.filter(n => {
             const ns = (n.sector_name || n.sector || '').toLowerCase().trim();
             return ns === sectorName.toLowerCase().trim();
           });

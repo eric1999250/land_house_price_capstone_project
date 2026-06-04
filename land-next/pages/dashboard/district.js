@@ -546,11 +546,10 @@ function ViewSector({ user, addAlert }) {
   async function load() {
     setLoading(true);
     try {
-      // Use /admin/users/by-role — confirmed working endpoint
       const r = await fetch(`${API}/admin/users/by-role`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'notary', notary_type: 'sector' })
+        body: JSON.stringify({ role: 'sector_land_officer' })  // ← FIXED
       });
       const d = await r.json();
       if (d.success) setPeople(d.users || []);
