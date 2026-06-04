@@ -2275,7 +2275,7 @@ def sector_report():
             INSERT INTO reports
             (reference, from_user_id, from_role, to_role, type, content, 
             sent_at, read, generated_at, district_id)
-        VALUES (%s, %s, 'sector_land_officer', 'district_land_officer', 'full', %s, 
+        VALUES (%s, %s, 'sector_land_officer', NULL, 'full', %s, 
             NOW(), FALSE, NOW(), %s)
         """, (reference, user_id, content, report_district_id))
         conn.commit(); cur.close(); conn.close()
@@ -2300,35 +2300,32 @@ def sector_report_send():
             cur.close(); conn.close()
             return jsonify({'success': False, 'message': 'Report not found'}), 404
 
-        new_reference = 'RPT-DISTRICT-' + uuid.uuid4().hex[:8].upper()
-
-        # FIX: get district_id via sectors join (sector officers don't have district_id directly)
+        # Get district_id
         cur.execute("""
-            SELECT s.district_id
+            SELECT COALESCE(s.district_id, u.district_id) AS district_id
             FROM users u
             LEFT JOIN sectors s ON u.sector_id = s.id
             WHERE u.id = %s
         """, (original['from_user_id'],))
-        sector_user = cur.fetchone()
-        district_id = sector_user['district_id'] if sector_user else None
-
-        # Fallback: try direct district_id on user
-        if not district_id:
-            cur.execute("SELECT district_id FROM users WHERE id = %s", (original['from_user_id'],))
-            row = cur.fetchone()
-            district_id = row['district_id'] if row else None
+        row = cur.fetchone()
+        district_id = row['district_id'] if row else None
 
         if not district_id:
             cur.close(); conn.close()
-            return jsonify({'success': False, 'message': 'Could not determine district for this sector officer'}), 400
+            return jsonify({'success': False, 'message': 'Could not determine district'}), 400
 
+        # UPDATE the existing report in place — no duplicate
         cur.execute("""
-            INSERT INTO reports (reference, from_user_id, from_role, to_role, type, content, sent_at, read, forwarded_from, district_id)
-            VALUES (%s, %s, %s, 'district_land_officer', %s, %s, NOW(), FALSE, %s, %s)
-        """, (new_reference, original['from_user_id'], original['from_role'], original['type'], original['content'], original['reference'], district_id))
+            UPDATE reports
+            SET to_role = 'district_land_officer',
+                district_id = %s,
+                sent_at = NOW(),
+                read = FALSE
+            WHERE reference = %s
+        """, (district_id, report_ref))
 
         conn.commit(); cur.close(); conn.close()
-        return jsonify({'success': True, 'new_reference': new_reference})
+        return jsonify({'success': True, 'new_reference': report_ref})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
@@ -2755,33 +2752,25 @@ def district_report_forward():
         data       = request.get_json()
         report_ref = data.get('report_ref')
         user_id    = data.get('user_id')
- 
+
         conn = get_db(); cur = conn.cursor()
         cur.execute("SELECT * FROM reports WHERE reference = %s", (report_ref,))
         original = cur.fetchone()
         if not original:
             cur.close(); conn.close()
             return jsonify({'success': False, 'message': 'Report not found'}), 404
- 
-        new_ref = 'RPT-ADMIN-' + uuid.uuid4().hex[:8].upper()
+
+        # UPDATE in place — no duplicate
         cur.execute("""
-            INSERT INTO reports
-                (reference, from_user_id, from_role, to_role, type, content,
-                 sent_at, read, forwarded_from, district_id, province_id, generated_at)
-            VALUES (%s, %s, %s, 'admin', %s, %s, NOW(), FALSE, %s, %s, %s, NOW())
-        """, (
-            new_ref,
-            original['from_user_id'],
-            original['from_role'],
-            original['type'],
-            original['content'],
-            original['reference'],
-            original.get('district_id'),
-            original.get('province_id'),
-        ))
+            UPDATE reports
+            SET to_role = 'admin',
+                sent_at = NOW(),
+                read = FALSE
+            WHERE reference = %s
+        """, (report_ref,))
         conn.commit(); cur.close(); conn.close()
- 
-        return jsonify({'success': True, 'new_reference': new_ref})
+
+        return jsonify({'success': True, 'new_reference': report_ref})
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
