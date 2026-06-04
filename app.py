@@ -3336,7 +3336,11 @@ def listings_confirm_agreement():
         cur.execute("SELECT full_name FROM users WHERE id=%s", (seller_id,))
         seller_row = cur.fetchone()
         seller_name = seller_row['full_name'] if seller_row else 'Unknown Seller'
-        cur.execute("UPDATE publications SET is_agreed=TRUE, agreed_at=NOW(), agreed_buyer_id=%s, agreed_room=%s WHERE id=%s", (buyer_id, room, listing_id))
+        cur.execute("""
+            UPDATE publications 
+            SET is_agreed = FALSE, agreed_buyer_id = NULL, agreed_room = NULL
+            WHERE upi = %s
+        """, (tx['upi'],))
         # Insert agreement with form_status = 'pending' (seller fills form next)
         cur.execute("""
             INSERT INTO agreements
