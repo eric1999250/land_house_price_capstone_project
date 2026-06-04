@@ -1656,6 +1656,7 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
   const [parcelDropOpen, setParcelDropOpen] = useState(false);
   const parcelDropRef = useRef(null);
   const upiDebounceRef = useRef(null);
+  const [confirmedAgreements, setConfirmedAgreements] = useState(new Set());
 
   async function load() {
     setLoading(true);
@@ -1672,6 +1673,24 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
     } catch { addAlert('Failed to load your listings', 'error'); }
     setLoading(false);
   }
+
+  // ADD THIS NEW useEffect to load confirmed agreements
+  useEffect(() => {
+    // Fetch agreements to know which listings are agreed
+    fetch(`${API}/agreements/seller`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seller_id: user?.id })
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.agreements) {
+          const agreedListings = new Set(d.agreements.map(ag => ag.listing_id));
+          setConfirmedAgreements(agreedListings);
+        }
+      })
+      .catch(() => {});
+    }, [user?.id]);
 
   useEffect(() => { load(); }, []);
 
@@ -1893,53 +1912,66 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
         {loading && <div className="loading-state"><Ic.Spin /> Loading…</div>}
         {!loading && myListings.length === 0 && !showPublish && <div className="empty-state">No active listings. Click "+ Publish UPI" to add one.</div>}
         {!loading && myListings.map(l => {
-          const listingRooms = buyerRooms.filter(r => r.listing_id === l.id);
-          return (
-            <div key={l.id} className="listing-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: listingRooms.length ? 10 : 0 }}>
+  const listingRooms = buyerRooms.filter(r => r.listing_id === l.id);
+  const isAgreed = confirmedAgreements.has(l.id);
+  return (
+    <div key={l.id} className="listing-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: listingRooms.length ? 10 : 0 }}>
+        <div style={{ flex: 1 }}>
+          <div className="listing-upi">{l.upi}</div>
+          <div style={{ fontSize: 11, color: '#4d7c77', marginTop: 2 }}>
+            <strong>{user?.name}</strong> · 
+            <Ic.Phone /> 
+            <a href={`tel:${user?.phone}`} style={{ color: '#0d9488', fontWeight: 700, textDecoration: 'none' }}>
+              {user?.phone || '—'}
+            </a>
+          </div>
+          <div className="listing-price">{fmt(l.asking_price || 0)}</div>
+          {l.description && <div className="listing-desc">{l.description}</div>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="status-badge active">● active</span>
+          <button 
+            className="btn-del" 
+            onClick={() => removeListing(l.id)}
+            disabled={isAgreed}
+            style={{ 
+              opacity: isAgreed ? 0.5 : 1,
+              cursor: isAgreed ? 'not-allowed' : 'pointer',
+              background: isAgreed ? 'rgba(239,68,68,.03)' : 'rgba(239,68,68,.06)'
+            }}
+            title={isAgreed ? "Cannot delete listing after agreement confirmation" : "Delete listing"}
+          >
+            <Ic.Trash />
+          </button>
+        </div>
+      </div>
+      {listingRooms.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--g200)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '.4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Ic.Bell /> {listingRooms.length} Buyer{listingRooms.length > 1 ? 's' : ''} interested
+          </div>
+          {listingRooms.map(room => (
+            <div key={room.room} style={{ display: 'flex', flexDirection: 'column', padding: '10px 12px', background: 'var(--teal-l)', borderRadius: 10, border: '1px solid var(--g200)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1 }}>
-                  <div className="listing-upi">{l.upi}</div>
-                  <div style={{ fontSize: 11, color: '#4d7c77', marginTop: 2 }}>
-                    <strong>{user?.name}</strong> · 
-                    <Ic.Phone /> 
-                    <a href={`tel:${user?.phone}`} style={{ color: '#0d9488', fontWeight: 700, textDecoration: 'none' }}>
-                      {user?.phone || '—'}
-                    </a>
-                  </div>
-                  <div className="listing-price">{fmt(l.asking_price || 0)}</div>
-                  {l.description && <div className="listing-desc">{l.description}</div>}
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{room.buyer_name || 'Unknown Buyer'}</div>
+                  <div style={{ fontSize: 11, color: '#4d7c77' }}>{room.message_count} messages · Last: {fmtDate(room.last_message_at)}</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="status-badge active">● active</span>
-                  <button className="btn-del" onClick={() => removeListing(l.id)}><Ic.Trash /></button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn-p" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => onSellerChatClick({ listing: l, room: room.room, buyerName: room.buyer_name })}><Ic.Chat /> Reply</button>
+                  {room.agreed
+                    ? <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', padding: '6px 10px', background: 'rgba(16,185,129,.1)', borderRadius: 8 }}>✓ Agreed</span>
+                    : <button className="btn-p" style={{ padding: '6px 12px', fontSize: 12, background: 'linear-gradient(135deg,#22c55e,#16a34a)' }} onClick={() => confirmAgreement(l, room)}><Ic.Check /> Confirm Agreement</button>}
                 </div>
               </div>
-              {listingRooms.length > 0 && (
-                <div style={{ borderTop: '1px solid var(--g200)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '.4px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Ic.Bell /> {listingRooms.length} Buyer{listingRooms.length > 1 ? 's' : ''} interested
-                  </div>
-                  {listingRooms.map(room => (
-                    <div key={room.room} style={{ display: 'flex', flexDirection: 'column', padding: '10px 12px', background: 'var(--teal-l)', borderRadius: 10, border: '1px solid var(--g200)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13 }}>{room.buyer_name || 'Unknown Buyer'}</div>
-                          <div style={{ fontSize: 11, color: '#4d7c77' }}>{room.message_count} messages · Last: {fmtDate(room.last_message_at)}</div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button className="btn-p" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => onSellerChatClick({ listing: l, room: room.room, buyerName: room.buyer_name })}><Ic.Chat /> Reply</button>
-                          {room.agreed
-                            ? <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', padding: '6px 10px', background: 'rgba(16,185,129,.1)', borderRadius: 8 }}>✓ Agreed</span>
-                            : <button className="btn-p" style={{ padding: '6px 12px', fontSize: 12, background: 'linear-gradient(135deg,#22c55e,#16a34a)' }} onClick={() => confirmAgreement(l, room)}><Ic.Check /> Confirm Agreement</button>}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
-          );
-        })}
+          ))}
+        </div>
+      )}
+    </div>
+  );
+})}
       </div>
     </div>
   );
