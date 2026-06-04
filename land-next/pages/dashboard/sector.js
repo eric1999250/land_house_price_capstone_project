@@ -76,7 +76,6 @@ const Ic = {
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: 'Home' },
-  { id: 'input', label: 'Input Land Data', icon: 'Input' },
   { id: 'verify', label: 'Verify Land Info', icon: 'Map' },
   { id: 'notary-requests', label: 'Notary Requests', icon: 'Bell' },
   { id: 'mutations', label: 'Mutations', icon: 'Shield' },
@@ -159,7 +158,6 @@ function ViewDashboard({ setActive, stats }) {
       <div className="section-label">QUICK ACTIONS</div>
       <div className="qa-grid">
         {[
-          { label: 'Input Land Data', desc: 'Register new parcel', id: 'input', color: '#0d9488' },
           { label: 'Verify Land Info', desc: 'Search & verify UPI', id: 'verify', color: '#0891b2' },
           { label: 'Mutations', desc: 'Review land transfer mutations', id: 'mutations', color: '#f59e0b' },
           { label: 'Recorded Deeds', desc: 'All approved land transfers', id: 'records', color: '#22c55e' },
@@ -1695,14 +1693,13 @@ export default function SectorDashboard() {
   const initials = user?.name?.split(' ').filter(Boolean).slice(0,2).map(n => n[0]?.toUpperCase()).join('') || 'SO';
 
   const TITLES = {
-    dashboard: 'My Dashboard', input: 'Input Land Data', verify: 'Verify Land Info','notary-requests': 'Notary Requests',
+    dashboard: 'My Dashboard', verify: 'Verify Land Info', 'notary-requests': 'Notary Requests',
     mutations: 'Mutations', records: 'Recorded Deeds', reports: 'Reports', pricechek: 'Price Check',
   };
 
   function renderContent() {
     switch (active) {
       case 'dashboard': return <ViewDashboard setActive={setActive} stats={stats} />;
-      case 'input': return <ViewInput user={user} addAlert={addAlert} />;
       case 'verify': return <ViewVerify user={user} addAlert={addAlert} />;
       case 'notary-requests': return <ViewNotaryRequests user={user} addAlert={addAlert} />;
       case 'mutations': return <ViewMutations addAlert={addAlert} />;
@@ -1851,7 +1848,7 @@ export default function SectorDashboard() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.3 }}>
               <span className="topbar-user-name">{user?.name}</span>
-              <span className="topbar-role">Sector: {user?.sector_name || 'Not Assigned'}</span>
+              <span className="topbar-role">Sector Officer · {user?.sector_name || 'Not Assigned'}</span>
             </div>
             <span className="topbar-chev"><Ic.ChevDown /></span>
           </div>
@@ -1871,7 +1868,7 @@ export default function SectorDashboard() {
                   </div>
                 </div>
                 <div className="ud-name">{user?.name}</div>
-                <div className="ud-role">Sector Officer</div>
+                <div className="ud-role">Sector Officer · {user?.sector_name || 'Not Assigned'}</div>
                 {user?.email && <div className="ud-email">{user.email}</div>}
                 <div className="ud-hint">Click photo to update</div>
               </div>
