@@ -3320,44 +3320,69 @@ def listings_confirm_agreement():
         return '', 204
     try:
         data = request.get_json()
-        listing_id = data.get('listing_id'); seller_id = data.get('seller_id'); room = data.get('room', '')
+        listing_id = data.get('listing_id')
+        seller_id = data.get('seller_id')
+        room = data.get('room', '')
+        
         if not listing_id or not seller_id:
             return jsonify({'success': False, 'message': 'listing_id and seller_id required'}), 400
-        conn = get_db(); cur = conn.cursor()
+            
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Get the listing
         cur.execute("SELECT * FROM publications WHERE id=%s AND user_id=%s", (listing_id, seller_id))
         listing = cur.fetchone()
+        
         if not listing:
-            cur.close(); conn.close()
+            cur.close()
+            conn.close()
             return jsonify({'success': False, 'message': 'Listing not found or not yours'}), 404
+            
+        # Get buyer info from chat messages
         cur.execute("SELECT DISTINCT buyer_id, buyer_name FROM chat_messages WHERE room=%s AND buyer_id IS NOT NULL LIMIT 1", (room,))
         buyer_row = cur.fetchone()
-        buyer_id   = buyer_row['buyer_id']   if buyer_row else None
+        buyer_id = buyer_row['buyer_id'] if buyer_row else None
         buyer_name = buyer_row['buyer_name'] if buyer_row else 'Unknown Buyer'
+        
+        # Get seller name
         cur.execute("SELECT full_name FROM users WHERE id=%s", (seller_id,))
         seller_row = cur.fetchone()
         seller_name = seller_row['full_name'] if seller_row else 'Unknown Seller'
+        
+        # FIX: Use listing['upi'] instead of tx['upi']
         cur.execute("""
             UPDATE publications 
-            SET is_agreed = FALSE, agreed_buyer_id = NULL, agreed_room = NULL
+            SET is_agreed = TRUE, 
+                agreed_buyer_id = %s, 
+                agreed_room = %s
             WHERE upi = %s
-        """, (tx['upi'],))
-        # Insert agreement with form_status = 'pending' (seller fills form next)
+        """, (buyer_id, room, listing['upi']))
+        
+        # Insert agreement
         cur.execute("""
             INSERT INTO agreements
                 (upi, listing_id, seller_id, buyer_id, seller_name, buyer_name, room,
-                 form_status, confirmed_at)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,'pending',NOW())
+                 form_status, confirmed_at, agreed_price)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,'pending',NOW(), %s)
             ON CONFLICT DO NOTHING
-        """, (listing['upi'], listing_id, seller_id, buyer_id, seller_name, buyer_name, room))
+        """, (listing['upi'], listing_id, seller_id, buyer_id, seller_name, buyer_name, room, listing['land_data'].get('asking_price', 0) if listing['land_data'] else 0))
+        
+        # Send system message
         system_msg = f"✓ {seller_name} confirmed agreement for UPI {listing['upi']}. Go to your Agreements tab for next steps."
         cur.execute("""
             INSERT INTO chat_messages (room, sender_id, sender_name, sender_role, message, listing_id, seller_id, buyer_id, buyer_name)
             VALUES (%s,%s,'System','system',%s,%s,%s,%s,%s)
         """, (room, seller_id, system_msg, listing_id, seller_id, buyer_id, buyer_name))
-        conn.commit(); cur.close(); conn.close()
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
         return jsonify({'success': True, 'message': 'Agreement confirmed.', 'buyer_name': buyer_name})
     except Exception as e:
-        import traceback; traceback.print_exc()
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
