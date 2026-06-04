@@ -1849,7 +1849,7 @@ export default function SectorDashboard() {
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <span className="topbar-user-name">{user?.name}</span>
               <span className="topbar-sep">|</span>
-              <span className="topbar-role">Sector Officer · {user?.sector_name || 'Not Assigned'}</span>
+              <span className="topbar-role">Sector : {user?.sector_name || 'Not Assigned'}</span>
             </div>
             <span className="topbar-chev"><Ic.ChevDown /></span>
           </div>
