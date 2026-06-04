@@ -322,8 +322,8 @@ function AddSectorModal({ user, onConfirm, onCancel, addAlert }) {
         body: JSON.stringify({ 
           ...form, 
           phone: form.phone ? '+250' + form.phone : '',
-          role: 'notary', 
-          notary_type: 'sector', 
+          role: 'sector_land_officer',  // ← FIXED
+          sector_id: form.sector_id,
           sector_name: form.sector_name,
           district_name: user?.district_name || ''
         }) 
@@ -363,7 +363,7 @@ function AddSectorModal({ user, onConfirm, onCancel, addAlert }) {
       <div className="m-box">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 16, fontFamily: '"Times New Roman",Times,serif' }}>Add Sector Notary</div>
+            <div style={{ fontWeight: 800, fontSize: 16, fontFamily: '"Times New Roman",Times,serif' }}>Add Sector Officer</div>
             <div style={{ fontSize: 12, color: '#4d7c77', marginTop: 2 }}>Register & auto-approve</div>
           </div>
           <button className="modal-close" onClick={onCancel}><Ic.X /></button>
@@ -451,7 +451,7 @@ function AddSectorModal({ user, onConfirm, onCancel, addAlert }) {
               disabled={loading || fetchingDistrict || !districtId || sectors.length === 0} 
               style={{ flex: 1, justifyContent: 'center' }}
             >
-              {loading ? <><Ic.Spin /> Saving…</> : <><Ic.Add /> Add Sector Notary</>}
+              {loading ? <><Ic.Spin /> Saving…</> : <><Ic.Add /> Add Sector Officer</>}
             </button>
           </div>
         </form>
