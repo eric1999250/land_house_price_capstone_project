@@ -2263,10 +2263,21 @@ def sector_report():
         ])
  
         cur.execute("""
+            SELECT COALESCE(s.district_id, u.district_id) AS district_id
+            FROM users u
+            LEFT JOIN sectors s ON u.sector_id = s.id
+            WHERE u.id = %s
+        """, (user_id,))
+        district_row = cur.fetchone()
+        report_district_id = district_row['district_id'] if district_row else None
+
+        cur.execute("""
             INSERT INTO reports
-                (reference, from_user_id, from_role, to_role, type, content, sent_at, read, generated_at)
-            VALUES (%s, %s, 'sector_land_officer', 'district_land_officer', 'full', %s, NOW(), FALSE, NOW())
-        """, (reference, user_id, content))
+            (reference, from_user_id, from_role, to_role, type, content, 
+            sent_at, read, generated_at, district_id)
+        VALUES (%s, %s, 'sector_land_officer', 'district_land_officer', 'full', %s, 
+            NOW(), FALSE, NOW(), %s)
+        """, (reference, user_id, content, report_district_id))
         conn.commit(); cur.close(); conn.close()
  
         return jsonify({'success': True, 'reference': reference, 'content': content})
@@ -2288,18 +2299,34 @@ def sector_report_send():
         if not original:
             cur.close(); conn.close()
             return jsonify({'success': False, 'message': 'Report not found'}), 404
+
         new_reference = 'RPT-DISTRICT-' + uuid.uuid4().hex[:8].upper()
-        # Get the sector officer's district_id
+
+        # FIX: get district_id via sectors join (sector officers don't have district_id directly)
         cur.execute("""
-        SELECT u.district_id FROM users u WHERE u.id = %s
+            SELECT s.district_id
+            FROM users u
+            LEFT JOIN sectors s ON u.sector_id = s.id
+            WHERE u.id = %s
         """, (original['from_user_id'],))
         sector_user = cur.fetchone()
         district_id = sector_user['district_id'] if sector_user else None
 
+        # Fallback: try direct district_id on user
+        if not district_id:
+            cur.execute("SELECT district_id FROM users WHERE id = %s", (original['from_user_id'],))
+            row = cur.fetchone()
+            district_id = row['district_id'] if row else None
+
+        if not district_id:
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'message': 'Could not determine district for this sector officer'}), 400
+
         cur.execute("""
-        INSERT INTO reports (reference, from_user_id, from_role, to_role, type, content, sent_at, read, forwarded_from, district_id)
-        VALUES (%s, %s, %s, 'district_land_officer', %s, %s, NOW(), FALSE, %s, %s)
+            INSERT INTO reports (reference, from_user_id, from_role, to_role, type, content, sent_at, read, forwarded_from, district_id)
+            VALUES (%s, %s, %s, 'district_land_officer', %s, %s, NOW(), FALSE, %s, %s)
         """, (new_reference, original['from_user_id'], original['from_role'], original['type'], original['content'], original['reference'], district_id))
+
         conn.commit(); cur.close(); conn.close()
         return jsonify({'success': True, 'new_reference': new_reference})
     except Exception as e:
@@ -3959,6 +3986,32 @@ def register():
                     cur.close()
                     conn.close()
                     return jsonify({'success': False, 'message': f'District ID {district_id} not found'}), 400
+
+
+        #Validation for Sector Officer
+        if role == 'sector_land_officer':
+            if not sector_id and not sector_name_val:
+                cur.close(); conn.close()
+                return jsonify({'success': False, 'message': 'Sector is required for Sector Officer'}), 400
+    
+            # Fetch district_id from sector if sector_id provided
+            if sector_id and not district_id:
+                cur.execute("SELECT district_id FROM sectors WHERE id = %s", (sector_id,))
+                sec_row = cur.fetchone()
+                if sec_row:
+                    district_id = sec_row['district_id']
+                    # Also get district name
+                    if not district_name_val:
+                        cur.execute("SELECT name FROM districts WHERE id = %s", (district_id,))
+                        dist_row = cur.fetchone()
+                        if dist_row:
+                            district_name_val = dist_row['name']
+    
+            if sector_name_val and not sector_id:
+                cur.execute("SELECT id FROM sectors WHERE LOWER(name) = LOWER(%s)", (sector_name_val,))
+                sec_row = cur.fetchone()
+                if sec_row:
+                    sector_id = sec_row['id']            
         
         # Validation for Private Notary
         if role == 'notary' and notary_type == 'private':
