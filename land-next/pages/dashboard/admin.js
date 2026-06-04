@@ -671,6 +671,7 @@ const [docsLoading, setDocsLoading] = useState(false);
   const ROLES = [
     { id: 'all',                   label: 'All Users'        },
     { id: 'district_land_officer', label: 'District Officers'},
+    { id: 'sector_land_officer',   label: 'Sector Officers'   },
     { id: 'notary_sector',         label: 'Sector Notaries'  },
     { id: 'notary_private',        label: 'Private Notaries' },
     { id: 'buyer_seller',          label: 'Buyers/Sellers'   },
@@ -713,9 +714,10 @@ const [docsLoading, setDocsLoading] = useState(false);
 
   const filtered = users.filter(u => {
     if (u.role === 'system_admin' || u.role === 'admin') return false;
+    if (activeRole === 'sector_land_officer' && u.role !== 'sector_land_officer') return false;
     if (activeRole === 'notary_sector'  && !(u.role === 'notary' && u.notary_type === 'sector'))  return false;
     if (activeRole === 'notary_private' && !(u.role === 'notary' && u.notary_type === 'private')) return false;
-    if (activeRole !== 'all' && activeRole !== 'notary_sector' && activeRole !== 'notary_private' && u.role !== activeRole) return false;
+    if (activeRole !== 'all' && activeRole !== 'sector_land_officer' && activeRole !== 'notary_sector' && activeRole !== 'notary_private' && u.role !== activeRole) return false;
     if (search) { const q = search.toLowerCase(); return u.full_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q); }
     return true;
   });
@@ -745,8 +747,8 @@ const [docsLoading, setDocsLoading] = useState(false);
               <span className="tab-count">
                 {role.id === 'all'
                   ? users.filter(u => u.role !== 'system_admin' && u.role !== 'admin').length
-                  : role.id === 'notary_sector'
-                    ? users.filter(u => u.role === 'notary' && u.notary_type === 'sector').length
+                  : role.id === 'sector_land_officer'
+                  ? users.filter(u => u.role === 'sector_land_officer').length
                     : role.id === 'notary_private'
                       ? users.filter(u => u.role === 'notary' && u.notary_type === 'private').length
                       : users.filter(u => u.role === role.id).length}
