@@ -2190,34 +2190,47 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
     console.log('Parcel details:', parcelDetails);
     
     if (parcelDetails) {
+      // Build human-readable address for display
       const addressParts = [];
+      if (parcelDetails.Cell && parcelDetails.Cell !== 'N/A') addressParts.push(parcelDetails.Cell);
       if (parcelDetails.Sector && parcelDetails.Sector !== 'N/A') addressParts.push(parcelDetails.Sector);
       if (parcelDetails.District && parcelDetails.District !== 'N/A') addressParts.push(parcelDetails.District);
       if (parcelDetails.Province && parcelDetails.Province !== 'N/A') addressParts.push(parcelDetails.Province);
       addressParts.push('Rwanda');
-      
-      const address = addressParts.join(', ');
-      console.log('Built address:', address);
-      setParcelAddress(address);
-      
-      if (!address || address === 'Rwanda') {
-        setMapError('Parcel location information incomplete');
-        setIsLoadingMap(false);
-        return;
-      }
-      
-      const coords = await getCoordinates(address);
-      if (coords) {
-        setParcelCoords(coords);
-        if (userLocation) {
-          const result = await calculateDistanceAndTime(userLocation, coords);
-          if (result) {
-            setDistance(result.distance);
-            setTravelTime(result.duration);
-          }
+      setParcelAddress(addressParts.join(', '));
+
+      // Use exact X/Y coordinates from the parcel data (x = longitude, y = latitude in Rwanda data)
+      const x = parseFloat(parcelDetails.X_coordinate);
+      const y = parseFloat(parcelDetails.Y_coordinate);
+
+      let coords = null;
+
+      if (x && y && !isNaN(x) && !isNaN(y) && x !== 0 && y !== 0) {
+        // Rwanda: X is longitude (~29-31), Y is latitude (~-1 to -3)
+        // Detect which is lat and which is lng by range
+        if (Math.abs(y) < 5 && x > 20) {
+          coords = { lat: y, lng: x }; // Y=lat, X=lng (standard)
+        } else if (Math.abs(x) < 5 && y > 20) {
+          coords = { lat: x, lng: y }; // swapped
+        } else {
+          coords = { lat: y, lng: x }; // default
         }
+        console.log('Using parcel X/Y coordinates:', coords);
+        setParcelCoords(coords);
       } else {
-        setMapError('Could not find parcel location on map');
+        // Fallback to geocoding the address if no valid coordinates
+        console.log('No valid X/Y coords, falling back to geocoding');
+        coords = await getCoordinates(addressParts.join(', '));
+        if (coords) setParcelCoords(coords);
+        else { setMapError('Could not find parcel location on map'); setIsLoadingMap(false); return; }
+      }
+
+      if (coords && userLocation) {
+        const result = await calculateDistanceAndTime(userLocation, coords);
+        if (result) {
+          setDistance(result.distance);
+          setTravelTime(result.duration);
+        }
       }
     } else {
       setMapError('Could not fetch parcel details');
@@ -2231,11 +2244,16 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
     (l.seller_name || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  // Get static map image URL
+  // Get static map image URL — use exact coordinates if available, fallback to address
   const getStaticMapUrl = () => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey || !parcelAddress) return null;
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(parcelAddress)}&zoom=14&size=600x250&markers=color:red%7C${encodeURIComponent(parcelAddress)}&key=${apiKey}`;
+    if (!apiKey) return null;
+    if (parcelCoords) {
+      const { lat, lng } = parcelCoords;
+      return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=16&size=600x280&markers=color:red%7Clabel:UPI%7C${lat},${lng}&key=${apiKey}`;
+    }
+    if (!parcelAddress) return null;
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(parcelAddress)}&zoom=14&size=600x280&markers=color:red%7C${encodeURIComponent(parcelAddress)}&key=${apiKey}`;
   };
 
   return (
@@ -2413,10 +2431,12 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
                 )}
                 
                 {/* Open in Google Maps button */}
-                {!isLoadingMap && parcelAddress && !mapError && (
+                {!isLoadingMap && (parcelCoords || parcelAddress) && !mapError && (
                   <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
                     <a 
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parcelAddress)}`}
+                      href={parcelCoords
+                        ? `https://www.google.com/maps?q=${parcelCoords.lat},${parcelCoords.lng}`
+                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parcelAddress)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ 
