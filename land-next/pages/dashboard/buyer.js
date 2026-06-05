@@ -2010,6 +2010,7 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
   const [search, setSearch] = useState('');
   const [selectedParcel, setSelectedParcel] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [locationDenied, setLocationDenied] = useState(false);
   const [distance, setDistance] = useState(null);
   const [travelTime, setTravelTime] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -2048,26 +2049,26 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
   }, []);
 
   // Get user's current location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          console.log('User location obtained:', position.coords.latitude, position.coords.longitude);
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.warn('Geolocation error:', error.message);
-          setMapError(`Location error: ${error.message}`);
-        }
-      );
-    } else {
-      console.warn('Geolocation not supported');
-      setMapError('Geolocation not supported by your browser');
+  // Request user location
+  function requestLocation() {
+    if (!navigator.geolocation) {
+      setLocationDenied(true);
+      return;
     }
-  }, []);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setLocationDenied(false);
+      },
+      (error) => {
+        console.warn('Geolocation error:', error.message);
+        setLocationDenied(true);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  useEffect(() => { requestLocation(); }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -2349,6 +2350,7 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
                 {!isLoadingMap && !userLocation && !mapError && (
                   <div style={{ 
                     background: '#fef3c7', 
+                    border: '1px solid #fcd34d',
                     borderRadius: 10, 
                     padding: '10px 14px', 
                     marginBottom: 12,
@@ -2356,10 +2358,18 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
                     color: '#92400e',
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'space-between',
                     gap: 8
                   }}>
-                    <Ic.Info />
-                    <span>Enable location services to see distance from your location.</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Ic.Info />
+                      <span>{locationDenied ? 'Location was blocked. Click to try again.' : 'Share your location to see distance.'}</span>
+                    </div>
+                    <button
+                      onClick={requestLocation}
+                      style={{ flexShrink: 0, padding: '5px 12px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: 'white', border: 'none', borderRadius: 8, fontFamily: '"Times New Roman",Times,serif', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
+                      📍 Share My Location
+                    </button>
                   </div>
                 )}
                 
