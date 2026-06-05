@@ -2125,36 +2125,34 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
   };
 
   // Calculate distance and travel time between two points
-  const calculateDistanceAndTime = async (origin, destination) => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey || !origin || !destination) return null;
-    
-    try {
-      console.log('Calculating distance between:', origin, destination);
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin.lat},${origin.lng}&destinations=${destination.lat},${destination.lng}&key=${apiKey}`
-      );
-      const data = await response.json();
-      console.log('Distance matrix response:', data);
-      if (data.rows && data.rows[0] && data.rows[0].elements[0]) {
-        const element = data.rows[0].elements[0];
-        if (element.status === 'OK') {
-          return {
-            distance: element.distance.text,
-            duration: element.duration.text,
-            distanceValue: element.distance.value,
-            durationValue: element.duration.value
-          };
-        } else {
-          console.error('Distance calculation status:', element.status);
-          setMapError(`Distance calculation: ${element.status}`);
+  // Calculate distance using Maps JS API DistanceMatrixService (avoids CORS)
+  const calculateDistanceAndTime = (origin, destination) => {
+    return new Promise((resolve) => {
+      if (!origin || !destination) { resolve(null); return; }
+      if (!window.google?.maps?.DistanceMatrixService) { resolve(null); return; }
+      const service = new window.google.maps.DistanceMatrixService();
+      service.getDistanceMatrix(
+        {
+          origins: [new window.google.maps.LatLng(origin.lat, origin.lng)],
+          destinations: [new window.google.maps.LatLng(destination.lat, destination.lng)],
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        },
+        (response, status) => {
+          if (status === 'OK' && response.rows[0]?.elements[0]?.status === 'OK') {
+            const el = response.rows[0].elements[0];
+            resolve({
+              distance: el.distance.text,
+              duration: el.duration.text,
+              distanceValue: el.distance.value,
+              durationValue: el.duration.value,
+            });
+          } else {
+            console.warn('Distance matrix status:', status);
+            resolve(null);
+          }
         }
-      }
-    } catch (error) {
-      console.error('Distance calculation error:', error);
-      setMapError('Distance calculation failed');
-    }
-    return null;
+      );
+    });
   };
 
   // When a parcel is selected, get its coordinates and calculate distance
