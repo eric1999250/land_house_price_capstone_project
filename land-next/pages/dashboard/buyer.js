@@ -2100,35 +2100,27 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
     return null;
   };
 
-  // Geocode address to coordinates
-  const getCoordinates = async (address) => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.error('No API key for geocoding');
-      return null;
-    }
-    
-    try {
-      console.log('Geocoding address:', address);
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`
-      );
-      const data = await response.json();
-      console.log('Geocoding response:', data);
-      if (data.results && data.results.length > 0) {
-        const location = data.results[0].geometry.location;
-        console.log('Coordinates found:', location);
-        return location;
-      } else {
-        console.error('No results for address:', address);
-        console.error('Geocoding status:', data.status);
-        setMapError(`Could not find location: ${data.status}`);
+  // Geocode address using the loaded Maps JS API (avoids CORS/key restriction issues)
+  const getCoordinates = (address) => {
+    return new Promise((resolve) => {
+      if (!address) { resolve(null); return; }
+      if (typeof window === 'undefined' || !window.google?.maps?.Geocoder) {
+        console.error('Google Maps Geocoder not loaded yet');
+        resolve(null);
+        return;
       }
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      setMapError('Geocoding failed');
-    }
-    return null;
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ address }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          const loc = results[0].geometry.location;
+          resolve({ lat: loc.lat(), lng: loc.lng() });
+        } else {
+          console.error('Geocoding failed:', status);
+          setMapError('Could not find parcel location on map');
+          resolve(null);
+        }
+      });
+    });
   };
 
   // Calculate distance and travel time between two points
@@ -2174,13 +2166,31 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
     setTravelTime(null);
     setParcelCoords(null);
     setParcelAddress(null);
-  
+
+    // Wait for Google Maps to be fully loaded (up to 10 seconds)
+    const waitForMaps = () => new Promise((resolve, reject) => {
+      if (window.google?.maps?.Geocoder) { resolve(); return; }
+      let tries = 0;
+      const interval = setInterval(() => {
+        tries++;
+        if (window.google?.maps?.Geocoder) { clearInterval(interval); resolve(); }
+        else if (tries > 100) { clearInterval(interval); reject(new Error('Maps failed to load')); }
+      }, 100);
+    });
+
+    try {
+      await waitForMaps();
+    } catch {
+      setMapError('Google Maps failed to load. Check your internet connection.');
+      setIsLoadingMap(false);
+      return;
+    }
+
     // Fetch full parcel details to get location
     const parcelDetails = await fetchParcelLocation(listing.upi);
     console.log('Parcel details:', parcelDetails);
     
     if (parcelDetails) {
-      // Build address from parcel details
       const addressParts = [];
       if (parcelDetails.Sector && parcelDetails.Sector !== 'N/A') addressParts.push(parcelDetails.Sector);
       if (parcelDetails.District && parcelDetails.District !== 'N/A') addressParts.push(parcelDetails.District);
@@ -2200,16 +2210,12 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
       const coords = await getCoordinates(address);
       if (coords) {
         setParcelCoords(coords);
-        
         if (userLocation) {
           const result = await calculateDistanceAndTime(userLocation, coords);
           if (result) {
             setDistance(result.distance);
             setTravelTime(result.duration);
           }
-        } else {
-          console.log('No user location available');
-          setMapError('Enable location services to see distance');
         }
       } else {
         setMapError('Could not find parcel location on map');
