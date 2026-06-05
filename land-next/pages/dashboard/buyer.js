@@ -2199,34 +2199,36 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
       addressParts.push('Rwanda');
       setParcelAddress(addressParts.join(', '));
 
-      // Use exact X/Y coordinates from the parcel data (x = longitude, y = latitude in Rwanda data)
       const x = parseFloat(parcelDetails.X_coordinate);
       const y = parseFloat(parcelDetails.Y_coordinate);
+      let resolvedCoords = null;
 
-      let coords = null;
-
-      if (x && y && !isNaN(x) && !isNaN(y) && x !== 0 && y !== 0) {
-        // Rwanda: X is longitude (~29-31), Y is latitude (~-1 to -3)
-        // Detect which is lat and which is lng by range
-        if (Math.abs(y) < 5 && x > 20) {
-          coords = { lat: y, lng: x }; // Y=lat, X=lng (standard)
-        } else if (Math.abs(x) < 5 && y > 20) {
-          coords = { lat: x, lng: y }; // swapped
+      // WGS84 check: lat in [-90,90], lng in [-180,180]
+      if (!isNaN(x) && !isNaN(y) && x !== 0 && y !== 0) {
+        if (Math.abs(y) <= 90 && Math.abs(x) <= 180) {
+          resolvedCoords = { lat: y, lng: x };
+        } else if (Math.abs(x) <= 90 && Math.abs(y) <= 180) {
+          resolvedCoords = { lat: x, lng: y };
         } else {
-          coords = { lat: y, lng: x }; // default
+          // UTM — fall back to geocoding the address
+          console.log('UTM coordinates detected, geocoding address instead');
+          resolvedCoords = await getCoordinates(addressParts.join(', '));
         }
-        console.log('Using parcel X/Y coordinates:', coords);
-        setParcelCoords(coords);
       } else {
-        // Fallback to geocoding the address if no valid coordinates
-        console.log('No valid X/Y coords, falling back to geocoding');
-        coords = await getCoordinates(addressParts.join(', '));
-        if (coords) setParcelCoords(coords);
-        else { setMapError('Could not find parcel location on map'); setIsLoadingMap(false); return; }
+        resolvedCoords = await getCoordinates(addressParts.join(', '));
       }
 
-      if (coords && userLocation) {
-        const result = await calculateDistanceAndTime(userLocation, coords);
+      if (!resolvedCoords) {
+        setMapError('Could not find parcel location on map');
+        setIsLoadingMap(false);
+        return;
+      }
+
+      console.log('Final parcel coords:', resolvedCoords);
+      setParcelCoords(resolvedCoords);
+
+      if (userLocation) {
+        const result = await calculateDistanceAndTime(userLocation, resolvedCoords);
         if (result) {
           setDistance(result.distance);
           setTravelTime(result.duration);
