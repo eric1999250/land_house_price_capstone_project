@@ -458,7 +458,7 @@ function ViewDashboard({ setActive, stats }) {
 }
 
 // ── Predict Price ──────────────────────────────────────────
-function ViewPredict({ user, addAlert }) {
+function ViewPredict({ user, addAlert, setActive }) {
   const [upi, setUpi] = useState('');
   const [loading, setLoading] = useState(false);
   const [predLoad, setPredLoad] = useState(false);
@@ -581,6 +581,15 @@ function ViewPredict({ user, addAlert }) {
             ))}
           </div>
           <div className="model-note"><Ic.Info /> A 2.5% Tax Applies Only to the Price Above 5,000,000 RWF</div>
+          {typeof window !== 'undefined' && sessionStorage.getItem('predict_from_publish') === '1' && (
+            <div style={{ padding: '0 20px 20px', marginTop: 4 }}>
+              <button
+                onClick={() => { sessionStorage.removeItem('predict_from_publish'); setActive('my-publications'); }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', background: 'linear-gradient(135deg,#7c3aed,#0d9488)', color: 'white', border: 'none', borderRadius: 12, fontFamily: '"Times New Roman",Times,serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                <Ic.MapDot /> Back to My Publications
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -732,7 +741,7 @@ function ViewMyParcels({ user, addAlert }) {
 }
 
 // ── Price History ──────────────────────────────────────────
-function ViewHistory({ user, addAlert }) {
+function ViewHistory({ user, addAlert, setActive }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -776,9 +785,16 @@ function ViewHistory({ user, addAlert }) {
         {loading && <div className="loading-state"><Ic.Spin /> Loading history…</div>}
         {!loading && filtered.length === 0 && (
           <div className="empty-state">
-            No prediction history yet.<br />
-            <span style={{ fontSize: 12, color: '#4d7c77', display: 'block', marginTop: 6 }}>
-              Use the <strong>Predict Price</strong> tab to estimate land values.
+            No prediction history yet.
+            <div style={{ marginTop: 14 }}>
+              <button
+                onClick={() => setActive('predict')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', background: 'linear-gradient(135deg,#0d9488,#0891b2)', color: 'white', border: 'none', borderRadius: 12, fontFamily: '"Times New Roman",Times,serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                <Ic.Tag /> Go to Predict Price
+              </button>
+            </div>
+            <span style={{ fontSize: 12, color: '#4d7c77', display: 'block', marginTop: 10 }}>
+              Estimate a land value first — it will appear here.
             </span>
           </div>
         )}
@@ -1642,7 +1658,7 @@ function ViewNotaryRequest({ user, agreement, addAlert, onRequestSent, onBack })
 }
 
 // ── My Publications ────────────────────────────────────────
-function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
+function ViewMyPublications({ user, addAlert, onSellerChatClick, setActive }) {
   const [myListings, setMyListings] = useState([]);
   const [buyerRooms, setBuyerRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1733,7 +1749,12 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
     if (upiError) { addAlert('This UPI is not in your parcels. Fix the UPI first.', 'error'); return; }
 
     // Step 2: Only check price history AFTER ownership is confirmed
-    if (historyPrices === false) { addAlert('No price history found. Go to Predict Price first.', 'error'); return; }
+    if (historyPrices === false) {
+      addAlert('No price history found. Redirecting to Predict Price…', 'warning');
+      sessionStorage.setItem('predict_from_publish', '1');
+      setActive('predict');
+      return;
+    }
 
     // Step 3: Still loading — wait
     if (historyPrices === null && pubForm.upi.trim()) { addAlert('Still validating UPI, please wait a moment.', 'warning'); return; }
@@ -1859,7 +1880,12 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
                 {!histLookupLoading && historyPrices === false && !upiError && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 10, fontSize: 13, color: '#92400e' }}>
                     <Ic.Info />
-                    <span>No price history found for this UPI. Please go to <strong>Predict Price</strong> first to generate and store an estimate.</span>
+                    <span>No price history found for this UPI. </span>
+                    <button
+                      onClick={() => { sessionStorage.setItem('predict_from_publish', '1'); setActive('predict'); }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: 'linear-gradient(135deg,#0d9488,#0891b2)', color: 'white', border: 'none', borderRadius: 8, fontFamily: '"Times New Roman",Times,serif', fontWeight: 700, fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>
+                      <Ic.Tag /> Predict Price First
+                    </button>
                   </div>
                 )}
 
@@ -1901,7 +1927,7 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
 
             <div className="form-group">
               <label className="form-label">Description (optional)</label>
-              <textarea className="f-inp" rows={2} value={pubForm.description} onChange={e => setPubForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe..." />
+              <textarea className="f-inp" rows={2} value={pubForm.description} onChange={e => setPubForm(f => ({ ...f, description: e.target.value }))} placeholder="For more details..." />
             </div>
             <button className="btn-pred" onClick={publish} disabled={pubLoading}>
               {pubLoading ? <><Ic.Spin /> Publishing…</> : <><Ic.Tag /> Publish Listing</>}
@@ -1936,11 +1962,11 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick }) {
             onClick={() => removeListing(l.id)}
             disabled={isAgreed}
             style={{ 
-              opacity: isAgreed ? 0.5 : 1,
+              opacity: isAgreed ? 0.4 : 1,
               cursor: isAgreed ? 'not-allowed' : 'pointer',
               background: isAgreed ? 'rgba(239,68,68,.03)' : 'rgba(239,68,68,.06)'
             }}
-            title={isAgreed ? "Cannot delete listing after agreement confirmation" : "Delete listing"}
+            title={isAgreed ? 'Agreement confirmed — deletion locked' : 'Delete listing'}
           >
             <Ic.Trash />
           </button>
@@ -2048,7 +2074,7 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
     fetch(`${API}/listings/all`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       .then(r => r.json())
       .then(d => { 
-        if (d.success) setPublications((d.listings || []).filter(l => String(l.user_id) !== String(user?.id) && !l.is_agreed)); 
+        if (d.success) setPublications((d.listings || []).filter(l => String(l.user_id) !== String(user?.id) && !l.is_agreed));
       })
       .catch(() => addAlert('Failed to load listings', 'error'))
       .finally(() => setLoading(false));
@@ -2973,9 +2999,9 @@ export default function BuyerDashboard() {
 
     switch (active) {
       case 'dashboard': return <ViewDashboard setActive={id => { clearAll(); setActive(id); }} stats={stats} />;
-      case 'predict': return <ViewPredict user={user} addAlert={addAlert} />;
-      case 'history': return <ViewHistory user={user} addAlert={addAlert} />;
-      case 'my-publications': return <ViewMyPublications user={user} addAlert={addAlert} onSellerChatClick={info => setSellerChatInfo(info)} />;
+      case 'predict': return <ViewPredict user={user} addAlert={addAlert} setActive={setActive} />;
+      case 'history': return <ViewHistory user={user} addAlert={addAlert} setActive={setActive} />;
+      case 'my-publications': return <ViewMyPublications user={user} addAlert={addAlert} onSellerChatClick={info => setSellerChatInfo(info)} setActive={setActive} />;
       case 'public-listings': return <ViewPublicListings user={user} addAlert={addAlert} onChatClick={listing => setBuyerChatTarget(listing)} />;
       case 'agreements': return <ViewAgreements user={user} addAlert={addAlert} onFillForm={ag => { clearAll(); setSaleFormTarget(ag); }} />;
       case 'mutations': return <ViewMutations user={user} />;
