@@ -3287,7 +3287,7 @@ def listings_create():
         cur.execute("SELECT id FROM publications WHERE upi=%s", (upi,))
         existing = cur.fetchone()
         if existing:
-            cur.execute("UPDATE publications SET land_data=%s, user_id=%s, publisher=%s, published_at=NOW() WHERE upi=%s RETURNING id", (json.dumps(land_data), user_id, seller_name, upi))
+            cur.execute("UPDATE publications SET land_data=%s, user_id=%s, publisher=%s, published_at=NOW(), is_agreed=FALSE, agreed_buyer_id=NULL, agreed_room=NULL WHERE upi=%s RETURNING id", (json.dumps(land_data), user_id, seller_name, upi))
         else:
             cur.execute("INSERT INTO publications (upi, user_id, land_data, publisher) VALUES (%s,%s,%s,%s) RETURNING id", (upi, user_id, json.dumps(land_data), seller_name))
         new_id = cur.fetchone()['id']
