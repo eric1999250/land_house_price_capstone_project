@@ -2101,7 +2101,46 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
     return null;
   };
 
-  // Geocode address using the loaded Maps JS API (avoids CORS/key restriction issues)
+  // Convert Rwanda land parcel coordinates to WGS84 lat/lng
+  // Rwanda uses Transverse Mercator: central meridian 30°E, false northing 5,000,000, false easting 500,000, scale 1.0
+  const utmToWgs84 = (easting, northing) => {
+    const a = 6378137.0;
+    const f = 1 / 298.257223563;
+    const b = a * (1 - f);
+    const e2 = (a * a - b * b) / (a * a);
+    const e1sq = (a * a - b * b) / (b * b);
+    const lon0 = 30 * Math.PI / 180; // central meridian 30°E
+    const k0 = 1.0;
+    const E0 = 500000;
+    const N0 = 5000000;
+
+    const N = northing - N0;
+    const E = easting - E0;
+    const M = N / k0;
+    const mu = M / (a * (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * e2 * e2 * e2 / 256));
+    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    const phi1 = mu
+      + (3 * e1 / 2 - 27 * Math.pow(e1, 3) / 32) * Math.sin(2 * mu)
+      + (21 * e1 * e1 / 16 - 55 * Math.pow(e1, 4) / 32) * Math.sin(4 * mu)
+      + (151 * Math.pow(e1, 3) / 96) * Math.sin(6 * mu)
+      + (1097 * Math.pow(e1, 4) / 512) * Math.sin(8 * mu);
+    const N1 = a / Math.sqrt(1 - e2 * Math.sin(phi1) * Math.sin(phi1));
+    const T1 = Math.tan(phi1) * Math.tan(phi1);
+    const C1 = e1sq * Math.cos(phi1) * Math.cos(phi1);
+    const R1 = a * (1 - e2) / Math.pow(1 - e2 * Math.sin(phi1) * Math.sin(phi1), 1.5);
+    const D = E / (N1 * k0);
+    const lat = phi1 - (N1 * Math.tan(phi1) / R1) * (
+      D * D / 2
+      - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * e1sq) * Math.pow(D, 4) / 24
+      + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * e1sq - 3 * C1 * C1) * Math.pow(D, 6) / 720
+    );
+    const lng = lon0 + (
+      D
+      - (1 + 2 * T1 + C1) * Math.pow(D, 3) / 6
+      + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * e1sq + 24 * T1 * T1) * Math.pow(D, 5) / 120
+    ) / Math.cos(phi1);
+    return { lat: lat * 180 / Math.PI, lng: lng * 180 / Math.PI };
+  };
   const getCoordinates = (address) => {
     return new Promise((resolve) => {
       if (!address) { resolve(null); return; }
@@ -2210,9 +2249,10 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
         } else if (Math.abs(x) <= 90 && Math.abs(y) <= 180) {
           resolvedCoords = { lat: x, lng: y };
         } else {
-          // UTM — fall back to geocoding the address
-          console.log('UTM coordinates detected, geocoding address instead');
-          resolvedCoords = await getCoordinates(addressParts.join(', '));
+          // UTM Zone 36S (Rwanda) — convert to WGS84 exactly
+          console.log('UTM coordinates detected, converting to WGS84:', x, y);
+          resolvedCoords = utmToWgs84(x, y);
+          console.log('Converted WGS84:', resolvedCoords);
         }
       } else {
         resolvedCoords = await getCoordinates(addressParts.join(', '));
