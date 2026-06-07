@@ -1986,7 +1986,9 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick, setActive }) {
                   <div style={{ fontSize: 11, color: '#4d7c77' }}>{room.message_count} messages · Last: {fmtDate(room.last_message_at)}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn-p" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => onSellerChatClick({ listing: l, room: room.room, buyerName: room.buyer_name })}><Ic.Chat /> Reply</button>
+                  {(!isAgreed || room.agreed) && (
+                    <button className="btn-p" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => onSellerChatClick({ listing: l, room: room.room, buyerName: room.buyer_name })}><Ic.Chat /> Reply</button>
+                  )}
                   {room.agreed
                     ? <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', padding: '6px 10px', background: 'rgba(16,185,129,.1)', borderRadius: 8 }}>✓ Agreed</span>
                     : isAgreed
@@ -2327,7 +2329,7 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   className="btn-p"
-                  style={{ padding: '8px 14px', fontSize: 12, whiteSpace: 'nowrap', background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}
+                  style={{ padding: '8px 14px', fontSize: 12, whiteSpace: 'nowrap' }}
                   onClick={async () => {
                     if (detailsParcel?.upi === l.upi) { setDetailsParcel(null); return; }
                     setDetailsParcel({ upi: l.upi, data: null, loading: true });
