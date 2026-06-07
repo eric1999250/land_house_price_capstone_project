@@ -1667,8 +1667,9 @@ export default function NotaryDashboard() {
   }, [user?.id]);
 
   if (!user) return (
-    <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#f0fdfa' }}>
-      <div style={{ color: '#0d9488', fontFamily: '"Times New Roman",Times,serif', fontSize: 15, display: 'flex', alignItems: 'center', gap: 10 }}><Ic.Spin /> Loading…</div>
+    <div className="lpes-loading-screen">
+      <div className="lpes-spinner" />
+      <span>Loading…</span>
     </div>
   );
 
