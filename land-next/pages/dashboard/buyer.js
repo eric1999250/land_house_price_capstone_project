@@ -1760,7 +1760,7 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick, setActive }) {
     if (historyPrices === null && pubForm.upi.trim()) { addAlert('Still validating UPI, please wait a moment.', 'warning'); return; }
     if (!pubForm.asking_price || Number(pubForm.asking_price) <= 0) { addAlert('Enter a valid asking price', 'error'); return; }
     // Block if price is below minimum
-    if (historyPrices && historyPrices.min_price && Number(pubForm.asking_price) < historyPrices.min_price) {
+    if (historyPrices && historyPrices.min_price && Number(pubForm.asking_price) < Math.round(historyPrices.min_price)) {
       addAlert(`Asking price must be at least the minimum: ${Math.round(historyPrices.min_price).toLocaleString()} RWF`, 'error');
       return;
     }
@@ -1880,13 +1880,13 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick, setActive }) {
                 {/* Price validation feedback */}
                 {historyPrices && pubForm.asking_price && Number(pubForm.asking_price) > 0 && (() => {
                   const price = Number(pubForm.asking_price);
-                  const min = historyPrices.min_price;
-                  const avg = historyPrices.avg_price;
-                  const max = historyPrices.max_price;
+                  const min = Math.round(historyPrices.min_price);
+                  const avg = Math.round(historyPrices.avg_price);
+                  const max = Math.round(historyPrices.max_price);
                   if (price < min) return (
                     <div style={{ fontSize: 12, color: '#ef4444', marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                      Price is below minimum ({Math.round(min).toLocaleString()} RWF). Must be at least the minimum.
+                      Price is below minimum ({min.toLocaleString()} RWF). Must be at least the minimum.
                     </div>
                   );
                   if (price >= min && price < avg) return (
@@ -1902,7 +1902,7 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick, setActive }) {
                   );
                   if (price >= max) return (
                     <div style={{ fontSize: 12, color: '#0d9488', marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-                      ✓ Price is at or above maximum — premium listing.
+                      ✓ Price is above maximum — allowed.
                     </div>
                   );
                 })()}
