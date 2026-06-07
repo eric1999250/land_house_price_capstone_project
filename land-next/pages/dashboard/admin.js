@@ -3327,6 +3327,16 @@ useEffect(() => {
         if (d.success) {
           const pending = (d.transactions || []).filter(t => t.status === 'pending').length;
           setPendingMutationsCount(pending);
+          // Only show badge if pending count exceeds what admin has already seen
+          setSeenMutationsCount(prev => {
+            const seen = prev;
+            if (pending <= seen) {
+              // counts went down or stayed same — update seen to current so badge clears
+              localStorage.setItem('lpes_admin_seen_mutations', String(pending));
+              return pending;
+            }
+            return seen;
+          });
         }
       }).catch(() => {});
   }
@@ -3340,7 +3350,19 @@ useEffect(() => {
     function fetchSuggCount() {
       fetch(`${API}/suggestions/all`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
         .then(r => r.json())
-        .then(d => { if (d.success) setSuggestionCount((d.suggestions || []).length); })
+        .then(d => {
+          if (d.success) {
+            const count = (d.suggestions || []).length;
+            setSuggestionCount(count);
+            setSeenSuggCount(prev => {
+              if (count <= prev) {
+                localStorage.setItem('lpes_admin_seen_sugg', String(count));
+                return count;
+              }
+              return prev;
+            });
+          }
+        })
         .catch(() => {});
     }
     fetchSuggCount();
@@ -3353,7 +3375,22 @@ useEffect(() => {
     function fetchReportCount() {
       fetch(`${API}/admin/inbox`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
         .then(r => r.json())
-        .then(d => { if (d.success) { const count = (d.reports || []).length; setUnreadReports(count); if (count > seenReportCount) { setReportsBadgeDismissed(false); localStorage.setItem('lpes_admin_reports_dismissed', 'false'); } } })
+        .then(d => {
+          if (d.success) {
+            const count = (d.reports || []).length;
+            setUnreadReports(count);
+            setSeenReportCount(prev => {
+              if (count > prev) {
+                // genuinely new reports arrived
+                setReportsBadgeDismissed(false);
+                localStorage.setItem('lpes_admin_reports_dismissed', 'false');
+                return prev;
+              }
+              // count stayed same or dropped — keep badge dismissed
+              return prev;
+            });
+          }
+        })
         .catch(() => {});
     }
     fetchReportCount();
@@ -3909,7 +3946,7 @@ useEffect(() => {
   setActive={handleSetActive}
   suggestionBadge={suggestionCount > seenSuggCount}
   reportBadge={!reportsBadgeDismissed && unreadReports > seenReportCount}
-  mutationBadge={pendingMutationsCount > 0 && pendingMutationsCount > seenMutationsCount}
+  mutationBadge={pendingMutationsCount > seenMutationsCount}
 />
           <div className="main"><div className="content">{renderContent()}</div></div>
         </div>
