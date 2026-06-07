@@ -1759,6 +1759,11 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick, setActive }) {
     // Step 3: Still loading — wait
     if (historyPrices === null && pubForm.upi.trim()) { addAlert('Still validating UPI, please wait a moment.', 'warning'); return; }
     if (!pubForm.asking_price || Number(pubForm.asking_price) <= 0) { addAlert('Enter a valid asking price', 'error'); return; }
+    // Block if price is below minimum
+    if (historyPrices && historyPrices.min_price && Number(pubForm.asking_price) < historyPrices.min_price) {
+      addAlert(`Asking price must be at least the minimum: ${Math.round(historyPrices.min_price).toLocaleString()} RWF`, 'error');
+      return;
+    }
     setPubLoading(true);
     try {
       const r = await fetch(`${API}/listings/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ upi: pubForm.upi.trim(), user_id: user?.id, seller_name: user?.name, phone: user?.phone || user?.phone_number || '', asking_price: Number(pubForm.asking_price), description: pubForm.description }) });
@@ -1864,7 +1869,43 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick, setActive }) {
                   value={pubForm.asking_price}
                   onChange={e => setPubForm(f => ({ ...f, asking_price: e.target.value }))}
                   placeholder="e.g. 8000000"
+                  style={{
+                    borderColor: historyPrices && pubForm.asking_price
+                      ? Number(pubForm.asking_price) < historyPrices.min_price
+                        ? '#ef4444'
+                        : '#10b981'
+                      : undefined
+                  }}
                 />
+                {/* Price validation feedback */}
+                {historyPrices && pubForm.asking_price && Number(pubForm.asking_price) > 0 && (() => {
+                  const price = Number(pubForm.asking_price);
+                  const min = historyPrices.min_price;
+                  const avg = historyPrices.avg_price;
+                  const max = historyPrices.max_price;
+                  if (price < min) return (
+                    <div style={{ fontSize: 12, color: '#ef4444', marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      Price is below minimum ({Math.round(min).toLocaleString()} RWF). Must be at least the minimum.
+                    </div>
+                  );
+                  if (price >= min && price < avg) return (
+                    <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                      Price is between minimum and average — consider setting higher.
+                    </div>
+                  );
+                  if (price >= avg && price < max) return (
+                    <div style={{ fontSize: 12, color: '#0d9488', marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                      ✓ Price is above average — good market value.
+                    </div>
+                  );
+                  if (price >= max) return (
+                    <div style={{ fontSize: 12, color: '#0d9488', marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                      ✓ Price is at or above maximum — premium listing.
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
