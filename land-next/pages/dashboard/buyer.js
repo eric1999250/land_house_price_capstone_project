@@ -1939,7 +1939,8 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick, setActive }) {
         {!loading && myListings.length === 0 && !showPublish && <div className="empty-state">No active listings. Click "+ Publish UPI" to add one.</div>}
         {!loading && myListings.map(l => {
   const listingRooms = buyerRooms.filter(r => r.listing_id === l.id);
-  const isAgreed = confirmedAgreements.has(l.id);
+  // isAgreed = true if any room is agreed OR listing is in confirmedAgreements set
+  const isAgreed = confirmedAgreements.has(l.id) || listingRooms.some(r => r.agreed);
   return (
     <div key={l.id} className="listing-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: listingRooms.length ? 10 : 0 }}>
@@ -1988,7 +1989,9 @@ function ViewMyPublications({ user, addAlert, onSellerChatClick, setActive }) {
                   <button className="btn-p" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => onSellerChatClick({ listing: l, room: room.room, buyerName: room.buyer_name })}><Ic.Chat /> Reply</button>
                   {room.agreed
                     ? <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', padding: '6px 10px', background: 'rgba(16,185,129,.1)', borderRadius: 8 }}>✓ Agreed</span>
-                    : <button className="btn-p" style={{ padding: '6px 12px', fontSize: 12, background: 'linear-gradient(135deg,#22c55e,#16a34a)' }} onClick={() => confirmAgreement(l, room)}><Ic.Check /> Confirm Agreement</button>}
+                    : isAgreed
+                      ? <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', padding: '6px 10px', background: 'rgba(148,163,184,.1)', borderRadius: 8 }}>Deal Closed</span>
+                      : <button className="btn-p" style={{ padding: '6px 12px', fontSize: 12, background: 'linear-gradient(135deg,#22c55e,#16a34a)' }} onClick={() => confirmAgreement(l, room)}><Ic.Check /> Confirm Agreement</button>}
                 </div>
               </div>
             </div>
@@ -2018,6 +2021,7 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
   const [parcelAddress, setParcelAddress] = useState(null);
   const [parcelCoords, setParcelCoords] = useState(null);
   const [isLoadingMap, setIsLoadingMap] = useState(false);
+  const [detailsParcel, setDetailsParcel] = useState(null); // { upi, data, loading }
 
   // Load Google Maps API
   useEffect(() => {
@@ -2321,6 +2325,18 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  className="btn-p"
+                  style={{ padding: '8px 14px', fontSize: 12, whiteSpace: 'nowrap', background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}
+                  onClick={async () => {
+                    if (detailsParcel?.upi === l.upi) { setDetailsParcel(null); return; }
+                    setDetailsParcel({ upi: l.upi, data: null, loading: true });
+                    const d = await fetchParcelLocation(l.upi);
+                    setDetailsParcel({ upi: l.upi, data: d, loading: false });
+                  }}
+                >
+                  <Ic.Info /> {detailsParcel?.upi === l.upi ? 'Hide Details' : 'View Details'}
+                </button>
                 <button 
                   className="btn-p" 
                   style={{ padding: '8px 14px', fontSize: 12, whiteSpace: 'nowrap', background: 'linear-gradient(135deg,#0891b2,#0d9488)' }} 
@@ -2339,6 +2355,60 @@ function ViewPublicListings({ user, addAlert, onChatClick }) {
               </div>
             </div>
             
+            {/* Parcel Details Panel */}
+            {detailsParcel?.upi === l.upi && (
+              <div style={{ marginTop: 14, borderTop: '1px solid var(--g200)', paddingTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Parcel Details — {l.upi}</span>
+                  <button onClick={() => setDetailsParcel(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>Close ×</button>
+                </div>
+                {detailsParcel.loading && <div style={{ padding: 20, textAlign: 'center', color: '#4d7c77' }}><Ic.Spin /> Loading…</div>}
+                {!detailsParcel.loading && !detailsParcel.data && <div style={{ color: '#ef4444', fontSize: 13 }}>Could not load parcel details.</div>}
+                {!detailsParcel.loading && detailsParcel.data && (() => {
+                  const d = detailsParcel.data;
+                  const sections = [
+                    { title: 'Basic Information', icon: <Ic.Info />, fields: [
+                      ['Province', d.Province], ['District', d.District], ['Sector', d.Sector], ['Cell', d.Cell], ['Village', d.Village],
+                    ]},
+                    { title: 'Location & Area', icon: <Ic.MapPin />, fields: [
+                      ['X Coordinate', d.X_coordinate ? Number(d.X_coordinate).toLocaleString('en-US', {minimumFractionDigits:4}) : '—'],
+                      ['Y Coordinate', d.Y_coordinate ? Number(d.Y_coordinate).toLocaleString('en-US', {minimumFractionDigits:4}) : '—'],
+                      ['Area (m²)', d.Area ? fmtNum(d.Area, 2) + ' m²' : '—'],
+                    ]},
+                    { title: 'Zoning & Classification', icon: <Ic.Tag />, fields: [
+                      ['Zoning', d.Zoning], ['Zoning %', d['Zoning_%'] ? fmtNum(d['Zoning_%'], 2) + '%' : '—'],
+                      ['Settlement', d.Settlement], ['Settlement %', d['Settlement_%'] ? fmtNum(d['Settlement_%'], 2) + '%' : '—'],
+                      ['Land Use', d.Land_use],
+                    ]},
+                    { title: 'Market Values (RWF)', icon: <Ic.Chart />, fields: [
+                      ['Min / m²', d.Min_Value_Sqm ? fmtNum(d.Min_Value_Sqm, 0) + ' RWF' : '—'],
+                      ['Avg / m²', d.Avg_Value_Sqm ? fmtNum(d.Avg_Value_Sqm, 0) + ' RWF' : '—'],
+                      ['Max / m²', d.Max_Value_Sqm ? fmtNum(d.Max_Value_Sqm, 0) + ' RWF' : '—'],
+                    ]},
+                  ];
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      {sections.map(sec => (
+                        <div key={sec.title} style={{ background: 'var(--teal-l)', border: '1px solid var(--g200)', borderRadius: 12, padding: '12px 14px' }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {sec.icon} {sec.title}
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+                            {sec.fields.map(([label, value]) => (
+                              <div key={label} style={{ background: 'white', borderRadius: 8, padding: '8px 10px', border: '1px solid var(--g200)' }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: '#4d7c77', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 3 }}>{label}</div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#0c1a19' }}>{value || '—'}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             {/* Google Map Section - expands when View Map is clicked */}
             {selectedParcel === l && (
               <div style={{ marginTop: 14, borderTop: '1px solid var(--g200)', paddingTop: 14 }}>
