@@ -1234,7 +1234,12 @@ function ViewPriceCheck({ addAlert }) {
 
             {/* Verdict */}
             <div style={{ background: result.inRange ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)', border: `1px solid ${result.inRange ? 'rgba(34,197,94,.3)' : 'rgba(239,68,68,.3)'}`, borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 22 }}>{result.inRange ? '' : ''}</span>
+              <span style={{ width: 28, height: 28, borderRadius: '50%', background: result.inRange ? 'rgba(34,197,94,.15)' : 'rgba(239,68,68,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {result.inRange
+                  ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                }
+              </span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: result.inRange ? '#15803d' : '#dc2626', marginBottom: 4 }}>
                   {result.inRange ? 'Transaction Price Verified' : 'Price Discrepancy Detected'}
