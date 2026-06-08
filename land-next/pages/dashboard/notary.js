@@ -1137,24 +1137,19 @@ function ViewPriceCheck({ addAlert }) {
       const validLow  = greaterIsUpper ? avgP : minP;
       const validHigh = greaterIsUpper ? maxP : avgP;
 
-      // Price must never be below min or above max
+      // Price must never be below min — above max is allowed
       const belowMin = agreed < minP;
-      const aboveMax = agreed > maxP;
-      const outOfValidRange = agreed < validLow || agreed > validHigh;
-      const inRange = !belowMin && !aboveMax && !outOfValidRange;
+      const inRange = !belowMin;
 
       const diff = agreed - avgP;
       const diffPct = ((diff / avgP) * 100).toFixed(1);
 
       let verdict = '';
       if (belowMin) verdict = `Price is below the minimum allowed value of ${fmt(minP)}.`;
-      else if (aboveMax) verdict = `Price is above the maximum allowed value of ${fmt(maxP)}.`;
-      else if (outOfValidRange) {
-        if (greaterIsUpper) verdict = `The greater price range is ${fmt(avgP)} – ${fmt(maxP)}. Price must be within this range.`;
-        else verdict = `The greater price range is ${fmt(minP)} – ${fmt(avgP)}. Price must be within this range.`;
-      }
 
-      setResult({ minP, avgP, maxP, agreed, inRange, diff, diffPct, verdict, validLow, validHigh, greaterIsUpper, upi: upi.trim(), land: d.land || {} });
+      const tax = agreed > 5_000_000 ? (agreed - 5_000_000) * 0.025 : 0;
+
+      setResult({ minP, avgP, maxP, agreed, inRange, diff, diffPct, verdict, validLow, validHigh, greaterIsUpper, tax, upi: upi.trim(), land: d.land || {} });
     } catch { addAlert('Cannot connect to server', 'error'); }
     setLoading(false);
   }
@@ -1215,6 +1210,11 @@ function ViewPriceCheck({ addAlert }) {
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#4d7c77', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>Agreed Price</div>
                     <div style={{ fontSize: 22, fontWeight: 800, color: result.inRange ? '#15803d' : '#dc2626' }}>{fmt(result.agreed)}</div>
                     <div style={{ fontSize: 12, color: '#4d7c77', marginTop: 2 }}>{result.diff >= 0 ? `+${result.diffPct}%` : `${result.diffPct}%`} vs avg</div>
+                    <div style={{ fontSize: 12, marginTop: 6, fontWeight: 600, color: result.tax > 0 ? '#f59e0b' : '#10b981' }}>
+                      {result.tax > 0
+                        ? `Tax: ${fmt(result.tax)} (2.5% above 5M)`
+                        : '✓ No Tax (below 5,000,000 RWF)'}
+                    </div>
                   </div>
               </div>
             </div>
@@ -1241,7 +1241,9 @@ function ViewPriceCheck({ addAlert }) {
                 </div>
                 <div style={{ fontSize: 13, color: result.inRange ? '#166534' : '#991b1b' }}>
                   {result.inRange
-                    ? `The agreed price of ${fmt(result.agreed)} falls within the valid range of ${fmt(result.validLow)} – ${fmt(result.validHigh)}. This transaction follows system rules.`
+                    ? result.agreed > result.maxP
+                      ? `The agreed price of ${fmt(result.agreed)} is above the maximum (${fmt(result.maxP)}) — this is allowed.`
+                      : `The agreed price of ${fmt(result.agreed)} is at or above the minimum. This transaction follows system rules.`
                     : result.verdict}
                 </div>
               </div>
