@@ -943,6 +943,25 @@ export default function Home() {
     return () => { document.body.style.overflow = ''; };
   }, [showL, showR]);
 
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('lpe_user');
+      if (s) {
+        const u = JSON.parse(s);
+        const map = {
+          admin: '/dashboard/admin', system_admin: '/dashboard/admin',
+          district_land_officer: '/dashboard/district',
+          sector_land_officer: '/dashboard/sector',
+          notary: '/dashboard/notary',
+          buyer_seller: '/dashboard/buyer',
+        };
+        const dest = map[u.role];
+        if (dest) { window.location.replace(dest); }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   async function doSearch() {
     const u = upi.trim(); if (!u) { setErr(t.enterUPI); return; }
     setErr(''); setLoading(true); setPreds(null); setLandData(null);
@@ -1098,7 +1117,7 @@ export default function Home() {
         {/* <Chatbot lang={lang} t={t} /> */}
 
         {showL && <LoginModal t={t} lang={lang} onClose={() => setShowL(false)}
-          onLoginSuccess={url => { setShowL(false); router.push(url); }}
+          onLoginSuccess={url => { window.location.href = url; }}
           onSwitchToRegister={() => { setShowL(false); setShowR(true); }} />}
         {showR && <RegisterModal t={t} lang={lang} onClose={() => setShowR(false)}
           onSwitchToLogin={() => { setShowR(false); setShowL(true); }} />}
