@@ -3304,19 +3304,7 @@ export default function AdminDashboard() {
     return () => { u1(); u2(); };
   }, [fetchStats]);
 
-  useEffect(() => {
-    if (suggestionCount === 0) {
-      setSeenSuggCount(0);
-      localStorage.setItem('lpes_admin_seen_sugg', '0');
-    }
-  }, [suggestionCount]);
-
-  useEffect(() => {
-    if (unreadReports === 0) {
-      setSeenReportCount(0);
-      localStorage.setItem('lpes_admin_seen_reports', '0');
-    }
-  }, [unreadReports]);
+  // (badge counts sync automatically via poll useEffects above)
 
   // Poll pending mutations count
 useEffect(() => {
@@ -3386,7 +3374,11 @@ useEffect(() => {
                 localStorage.setItem('lpes_admin_reports_dismissed', 'false');
                 return prev;
               }
-              // count stayed same or dropped — keep badge dismissed
+              // count stayed same or dropped — sync seen down so badge stays clear
+              if (count < prev) {
+                localStorage.setItem('lpes_admin_seen_reports', String(count));
+                return count;
+              }
               return prev;
             });
           }
