@@ -12,7 +12,7 @@ function useAuth() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   useEffect(() => {
-    const s = localStorage.getItem('lpe_user');
+    const s = sessionStorage.getItem('lpe_user');
     if (!s) { router.replace('/'); return; }
     let u;
     try { u = JSON.parse(s); } catch { router.replace('/'); return; }
@@ -2937,7 +2937,7 @@ function EditProfileModal({ user, onClose, onSaved, addAlert }) {
       const d = await r.json();
       if (d.success) {
         const updated = { ...user, phone: '+250' + phone, national_id: nid };
-        localStorage.setItem('lpe_user', JSON.stringify(updated));
+        sessionStorage.setItem('lpe_user', JSON.stringify(updated));
         onSaved(updated);
         addAlert('Profile updated successfully!', 'success');
         onClose();
@@ -3138,7 +3138,7 @@ export default function BuyerDashboard() {
     </div>
   );
 
-  function doLogout() { localStorage.removeItem('lpe_user'); router.push('/'); }
+  function doLogout() { sessionStorage.removeItem('lpe_user'); router.push('/'); }
   function clearAll() { setBuyerChatTarget(null); setSellerChatInfo(null); setSaleFormTarget(null); setNotaryTarget(null); }
 
   function handlePhotoChange(e) {
@@ -3580,7 +3580,7 @@ export default function BuyerDashboard() {
             onClose={() => setShowEditProfile(false)}
             onSaved={updated => {
               // Update user in local storage and force re-read
-              localStorage.setItem('lpe_user', JSON.stringify(updated));
+              sessionStorage.setItem('lpe_user', JSON.stringify(updated));
               // Update displayed phone in topbar without full reload
               window.location.reload();
             }}

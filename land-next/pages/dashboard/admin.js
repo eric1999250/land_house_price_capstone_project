@@ -72,7 +72,8 @@ function useAuth() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   useEffect(() => {
-    const s = localStorage.getItem('lpe_user');
+    // CHANGE THIS LINE:
+    const s = sessionStorage.getItem('lpe_user');  // ← changed from localStorage
     if (!s) { router.replace('/'); return; }
     let u;
     try { u = JSON.parse(s); } catch { router.replace('/'); return; }
@@ -1703,7 +1704,7 @@ function ViewLocations({ addAlert }) {
     if (!confirm('Import all provinces, districts, sectors, cells and villages from data.json? This may take a moment.')) return;
     setImporting(true);
     try {
-      const user = JSON.parse(localStorage.getItem('lpe_user') || '{}');
+      const user = JSON.parse(sessionStorage.getItem('lpe_user') || '{}');
     const r = await fetch(`${API}/admin/import-locations`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ admin_id: user.id }) });
       const d = await r.json();
       if (d.success) {
@@ -3404,7 +3405,10 @@ useEffect(() => {
     </div>
   );
 
-  function doLogout() { localStorage.removeItem('lpe_user'); router.push('/'); }
+  function doLogout() { 
+    sessionStorage.removeItem('lpe_user');  // ← changed from localStorage
+    router.push('/'); 
+  }
 
   function handlePhotoChange(e) {
     const file = e.target.files?.[0];

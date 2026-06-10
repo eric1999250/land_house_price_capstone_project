@@ -12,7 +12,7 @@ function useAuth() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   useEffect(() => {
-    const s = localStorage.getItem('lpe_user');
+    const s = sessionStorage.getItem('lpe_user');
     if (!s) { router.replace('/'); return; }
     let u;
     try { u = JSON.parse(s); } catch { router.replace('/'); return; }
@@ -1680,7 +1680,7 @@ export default function SectorDashboard() {
     </div>
   );
 
-  function doLogout() { localStorage.removeItem('lpe_user'); router.push('/'); }
+  function doLogout() { sessionStorage.removeItem('lpe_user'); router.push('/'); }
 
   function handlePhotoChange(e) {
     const file = e.target.files?.[0];
