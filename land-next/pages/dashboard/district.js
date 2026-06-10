@@ -15,14 +15,10 @@ const API = 'https://land-price-api-35fr.onrender.com';
 // ── Auth ────────────────────────────────────────────────────
 function useAuth() {
   const router = useRouter();
-  const [user, setUser] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const u = JSON.parse(sessionStorage.getItem('lpe_user') || '');
-      return u?.role === 'district_land_officer' ? u : null;
-    } catch { return null; }
-  });
+  const [user, setUser] = useState(null);
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
+    setMounted(true);
     const s = sessionStorage.getItem('lpe_user');
     if (!s) { router.replace('/'); return; }
     let u;
@@ -34,7 +30,7 @@ function useAuth() {
     }
     setUser(u);
   }, []);
-  return { user };
+  return { user, mounted };
 }
 
 // ── Alerts ──────────────────────────────────────────────────
@@ -2015,7 +2011,7 @@ function ChangePasswordModal({ user, addAlert, onClose }) {
 
 // ── ROOT ─────────────────────────────────────────────────────
 export default function DistrictDashboard() {
-  const { user } = useAuth();
+  const { user, mounted } = useAuth();
   const router = useRouter();
   const { alerts, addAlert, removeAlert } = useAlerts();
   const [active, setActive] = useState('dashboard');
@@ -2048,12 +2044,7 @@ export default function DistrictDashboard() {
       .catch(() => {});
   }, [user?.id]);
 
-  if (!user) return (
-    <div className="lpes-loading-screen">
-      <div className="lpes-spinner" />
-      <span>Loading…</span>
-    </div>
-  );
+  if (!mounted || !user) return null;
 
   function doLogout() { sessionStorage.removeItem('lpe_user'); router.push('/'); }
 

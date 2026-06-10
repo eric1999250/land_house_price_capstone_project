@@ -10,17 +10,11 @@ const API = 'https://land-price-api-35fr.onrender.com';
 
 function useAuth() {
   const router = useRouter();
-
-  // Read synchronously so user is set on first render — no loading flash
-  const [user, setUser] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const u = JSON.parse(sessionStorage.getItem('lpe_user') || '');
-      return u?.role === 'buyer_seller' ? u : null;
-    } catch { return null; }
-  });
+  const [user, setUser] = useState(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const s = sessionStorage.getItem('lpe_user');
     if (!s) { router.replace('/'); return; }
     let u;
@@ -35,7 +29,9 @@ function useAuth() {
       router.replace(map[u.role] || '/');
       return;
     }
-    // Hydrate extra fields in background — no spinner needed
+    // Set user immediately from sessionStorage — no loading screen
+    setUser(u);
+    // Hydrate extra fields in background silently
     fetch(`${API}/auth/me`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -47,10 +43,10 @@ function useAuth() {
         phone: d.user.phone || d.user.phone_number || u.phone || u.phone_number || '',
         national_id: d.user.national_id || u.national_id || ''
       } : u))
-      .catch(() => setUser(u));
+      .catch(() => {});
   }, []);
 
-  return { user };
+  return { user, mounted };
 }
 
 const fmt = n => Math.round(n).toLocaleString('en-US') + ' RWF';
@@ -3034,7 +3030,7 @@ function EditProfileModal({ user, onClose, onSaved, addAlert }) {
 // MAIN
 // ══════════════════════════════════════════════════════════
 export default function BuyerDashboard() {
-  const { user } = useAuth();
+  const { user, mounted } = useAuth();
   const router = useRouter();
   const { alerts, addAlert, removeAlert } = useAlerts();
   const [active, setActive] = useState('dashboard');
@@ -3142,12 +3138,7 @@ export default function BuyerDashboard() {
     .catch(() => {});
 }, [user]);
 
-  if (!user) return (
-    <div className="lpes-loading-screen">
-      <div className="lpes-spinner" />
-      <span>Loading…</span>
-    </div>
-  );
+  if (!mounted || !user) return null;
 
   function doLogout() { sessionStorage.removeItem('lpe_user'); router.push('/'); }
   function clearAll() { setBuyerChatTarget(null); setSellerChatInfo(null); setSaleFormTarget(null); setNotaryTarget(null); }
@@ -3242,7 +3233,7 @@ export default function BuyerDashboard() {
     --sh-lg:0 10px 30px rgba(13,148,136,.20);
     --sh-xl:0 20px 50px rgba(13,148,136,.24);
     --r:12px;--rl:16px;--rxl:22px;
-    --sb-w:260px;--nav:#0f172a;
+    --sb-w:260px;--nav: #0f172a;
   }
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   body{font-family:"Times New Roman",Times,serif;background:#f0fdfa;color:#0c1a19}

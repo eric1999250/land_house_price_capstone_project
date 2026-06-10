@@ -70,15 +70,10 @@ function ConfirmDialog({ title, message, detail, confirmText, confirmColor, onCo
 // ── Auth ──
 function useAuth() {
   const router = useRouter();
-  const [user, setUser] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const u = JSON.parse(sessionStorage.getItem('lpe_user') || '');
-      const isAdmin = u.role === 'admin' || u.role === 'system_admin';
-      return isAdmin ? u : null;
-    } catch { return null; }
-  });
+  const [user, setUser] = useState(null);
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
+    setMounted(true);
     const s = sessionStorage.getItem('lpe_user');
     if (!s) { router.replace('/'); return; }
     let u;
@@ -91,7 +86,7 @@ function useAuth() {
     }
     setUser(u);
   }, []);
-  return { user };
+  return { user, mounted };
 }
 
 const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -3220,7 +3215,7 @@ function ViewPriceTrends({ addAlert }) {
 
 // ── ROOT ──
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, mounted } = useAuth();
   const router = useRouter();
   const { alerts, addAlert, removeAlert } = useAlerts();
   const [pendingMutationsCount, setPendingMutationsCount] = useState(0);
@@ -3404,12 +3399,7 @@ useEffect(() => {
     return () => document.removeEventListener('mousedown', fn);
   }, []);
 
-  if (!user) return (
-    <div className="lpes-loading-screen">
-      <div className="lpes-spinner" />
-      <span>Loading…</span>
-    </div>
-  );
+  if (!mounted || !user) return null;
 
   function doLogout() { 
     sessionStorage.removeItem('lpe_user');  // ← changed from localStorage
