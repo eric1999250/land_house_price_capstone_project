@@ -10,7 +10,16 @@ const API = 'https://land-price-api-35fr.onrender.com';
 
 function useAuth() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+
+  // Read synchronously so user is set on first render — no loading flash
+  const [user, setUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const u = JSON.parse(sessionStorage.getItem('lpe_user') || '');
+      return u?.role === 'buyer_seller' ? u : null;
+    } catch { return null; }
+  });
+
   useEffect(() => {
     const s = sessionStorage.getItem('lpe_user');
     if (!s) { router.replace('/'); return; }
@@ -26,19 +35,21 @@ function useAuth() {
       router.replace(map[u.role] || '/');
       return;
     }
+    // Hydrate extra fields in background — no spinner needed
     fetch(`${API}/auth/me`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: u.id })
     })
       .then(r => r.json())
-      .then(d => setUser(d.success ? { 
-        ...u, 
+      .then(d => setUser(d.success ? {
+        ...u,
         phone: d.user.phone || d.user.phone_number || u.phone || u.phone_number || '',
-        national_id: d.user.national_id || u.national_id || ''  // ← FIXED
+        national_id: d.user.national_id || u.national_id || ''
       } : u))
       .catch(() => setUser(u));
   }, []);
+
   return { user };
 }
 

@@ -15,19 +15,20 @@ const API = 'https://land-price-api-35fr.onrender.com';
 // ── Auth ────────────────────────────────────────────────────
 function useAuth() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const u = JSON.parse(sessionStorage.getItem('lpe_user') || '');
+      return u?.role === 'district_land_officer' ? u : null;
+    } catch { return null; }
+  });
   useEffect(() => {
     const s = sessionStorage.getItem('lpe_user');
     if (!s) { router.replace('/'); return; }
     let u;
     try { u = JSON.parse(s); } catch { router.replace('/'); return; }
     if (u.role !== 'district_land_officer') {
-      const map = {
-        admin: '/dashboard/admin', system_admin: '/dashboard/admin',
-        buyer_seller: '/dashboard/buyer',
-        sector_land_officer: '/dashboard/sector',
-        notary: '/dashboard/notary'
-      };
+      const map = { admin: '/dashboard/admin', system_admin: '/dashboard/admin', buyer_seller: '/dashboard/buyer', sector_land_officer: '/dashboard/sector', notary: '/dashboard/notary' };
       router.replace(map[u.role] || '/');
       return;
     }

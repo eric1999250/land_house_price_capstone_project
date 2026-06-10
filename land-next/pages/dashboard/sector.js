@@ -10,7 +10,13 @@ const API = 'https://land-price-api-35fr.onrender.com';
 
 function useAuth() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const u = JSON.parse(sessionStorage.getItem('lpe_user') || '');
+      return u?.role === 'sector_land_officer' ? u : null;
+    } catch { return null; }
+  });
   useEffect(() => {
     const s = sessionStorage.getItem('lpe_user');
     if (!s) { router.replace('/'); return; }

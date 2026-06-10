@@ -13,9 +13,15 @@ const API = 'https://land-price-api-35fr.onrender.com';
 
 function useAuth() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const u = JSON.parse(sessionStorage.getItem('lpe_user') || '');
+      return u?.role === 'notary' ? u : null;
+    } catch { return null; }
+  });
   useEffect(() => {
-    const s = localStorage.getItem('lpe_user');
+    const s = sessionStorage.getItem('lpe_user');
     if (!s) { router.replace('/'); return; }
     let u;
     try { u = JSON.parse(s); } catch { router.replace('/'); return; }
@@ -29,7 +35,7 @@ function useAuth() {
       router.replace(map[u.role] || '/');
       return;
     }
-    // notary_type is already in localStorage from login response
+    // notary_type is already in sessionStorage from login response
     // Only call /auth/me if notary_type is missing (older session)
     if (u.notary_type) {
       setUser(u);
@@ -43,8 +49,7 @@ function useAuth() {
         .then(d => {
           const notary_type = d.success ? (d.user.notary_type || 'sector') : 'sector';
           const updated = { ...u, notary_type, phone: d.success ? d.user.phone : u.phone };
-          // Persist updated notary_type to localStorage so this only runs once
-          localStorage.setItem('lpe_user', JSON.stringify(updated));
+          sessionStorage.setItem('lpe_user', JSON.stringify(updated)); // ← was localStorage
           setUser(updated);
         })
         .catch(() => setUser({ ...u, notary_type: 'sector' }));
@@ -1680,7 +1685,7 @@ export default function NotaryDashboard() {
     </div>
   );
 
-  function doLogout() { localStorage.removeItem('lpe_user'); router.push('/'); }
+  function doLogout() { sessionStorage.removeItem('lpe_user'); router.push('/'); }
 
   function handlePhotoChange(e) {
     const file = e.target.files?.[0];

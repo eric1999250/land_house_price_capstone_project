@@ -70,16 +70,22 @@ function ConfirmDialog({ title, message, detail, confirmText, confirmColor, onCo
 // ── Auth ──
 function useAuth() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const u = JSON.parse(sessionStorage.getItem('lpe_user') || '');
+      const isAdmin = u.role === 'admin' || u.role === 'system_admin';
+      return isAdmin ? u : null;
+    } catch { return null; }
+  });
   useEffect(() => {
-    // CHANGE THIS LINE:
-    const s = sessionStorage.getItem('lpe_user');  // ← changed from localStorage
+    const s = sessionStorage.getItem('lpe_user');
     if (!s) { router.replace('/'); return; }
     let u;
     try { u = JSON.parse(s); } catch { router.replace('/'); return; }
     const isAdmin = u.role === 'admin' || u.role === 'system_admin';
     if (!isAdmin) {
-      const map = { district_land_officer: '/dashboard/district', buyer_seller: '/dashboard/buyer', sector_land_officer: '/dashboard/sector', notary: '/dashboard/notary' };
+      const map = { system_admin: '/dashboard/admin', district_land_officer: '/dashboard/district', buyer_seller: '/dashboard/buyer', sector_land_officer: '/dashboard/sector', notary: '/dashboard/notary' };
       router.replace(map[u.role] || '/');
       return;
     }
