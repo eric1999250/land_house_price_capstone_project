@@ -33,7 +33,7 @@ export default function GoogleCallback() {
   .then(r => r.json())
   .then(d => {
     if (d.success) {
-      localStorage.setItem('lpe_user', JSON.stringify(d.user));
+      sessionStorage.setItem('lpe_user', JSON.stringify(d.user));
       router.push('/dashboard/buyer');
     } else {
       setStatus(d.message || 'Sign-in failed. Redirecting…');
@@ -41,7 +41,7 @@ export default function GoogleCallback() {
     }
   })
   .catch(() => { setStatus('Server error. Redirecting…'); setTimeout(() => router.push('/'), 2500); });
-  }, [router.isReady]); // ← depends on router.isReady, not router.query
+  }, [router.isReady, router.query]); // ← depends on router.isReady, not router.query
 
   return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', fontFamily:'"Times New Roman",serif', fontSize:16, color:'#0d9488' }}>
