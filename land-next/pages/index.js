@@ -215,7 +215,7 @@ function LoginModal({ t, lang, onClose, onLoginSuccess, onSwitchToRegister }) {
     try {
       const d = await (await fetch('https://land-price-api-35fr.onrender.com/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: un, password: pw }) })).json();
       setLoading(false);
-      if (d.success) { localStorage.setItem('lpe_user', JSON.stringify(d.user)); onLoginSuccess(d.redirect || '/dashboard'); }
+      if (d.success) { sessionStorage.setItem('lpe_user', JSON.stringify(d.user)); onLoginSuccess(d.redirect || '/dashboard'); }
       else {
         const msg = d.message || '';
         if (lang === 'rw') {
@@ -943,23 +943,8 @@ export default function Home() {
     return () => { document.body.style.overflow = ''; };
   }, [showL, showR]);
 
-  // Auto-redirect if already logged in
   useEffect(() => {
-    try {
-      const s = localStorage.getItem('lpe_user');
-      if (s) {
-        const u = JSON.parse(s);
-        const map = {
-          admin: '/dashboard/admin', system_admin: '/dashboard/admin',
-          district_land_officer: '/dashboard/district',
-          sector_land_officer: '/dashboard/sector',
-          notary: '/dashboard/notary',
-          buyer_seller: '/dashboard/buyer',
-        };
-        const dest = map[u.role];
-        if (dest) { window.location.replace(dest); }
-      }
-    } catch { /* ignore */ }
+    localStorage.removeItem('lpe_user');
   }, []);
 
   async function doSearch() {
