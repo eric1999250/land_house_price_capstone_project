@@ -1102,7 +1102,7 @@ export default function Home() {
         {/* <Chatbot lang={lang} t={t} /> */}
 
         {showL && <LoginModal t={t} lang={lang} onClose={() => setShowL(false)}
-          onLoginSuccess={url => { window.location.href = url; }}
+          onLoginSuccess={url => { router.push(url); }}
           onSwitchToRegister={() => { setShowL(false); setShowR(true); }} />}
         {showR && <RegisterModal t={t} lang={lang} onClose={() => setShowR(false)}
           onSwitchToLogin={() => { setShowR(false); setShowL(true); }} />}
